@@ -1,0 +1,102 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-memory}
+      POSTGRES_USER: ${POSTGRES_USER:-memory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localdev123}
+    volumes:
+      - ./data/pg:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-memory}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/version || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  index:
+    build:
+      context: .
+      dockerfile: services/index/Dockerfile
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-memory}
+      POSTGRES_USER: ${POSTGRES_USER:-memory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localdev123}
+      OLLAMA_URL: http://ollama:11434
+      EMBED_MODEL: ${EMBED_MODEL:-nomic-embed-text}
+      EMBED_DIMS: ${EMBED_DIMS:-768}
+      REPOS_ROOT: /repos
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev-secret-token-change-in-prod}
+      DEFAULT_NAMESPACE: ${DEFAULT_NAMESPACE:-default}
+    volumes:
+      - ./repos:/repos:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
+  standards:
+    build:
+      context: .
+      dockerfile: services/standards/Dockerfile
+    environment:
+      REPOS_ROOT: /repos
+      STANDARDS_REPO: ${STANDARDS_REPO:-enterprise-standards}
+      DEFAULT_STANDARDS_VERSION: ${DEFAULT_STANDARDS_VERSION:-local}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev-secret-token-change-in-prod}
+    volumes:
+      - ./repos:/repos:ro
+    networks:
+      - internal
+
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    environment:
+      INDEX_URL: http://index:8081
+      STANDARDS_URL: http://standards:8082
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-memory}
+      POSTGRES_USER: ${POSTGRES_USER:-memory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localdev123}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev-secret-token-change-in-prod}
+      GATEWAY_MAX_BUNDLE_CHARS: ${GATEWAY_MAX_BUNDLE_CHARS:-40000}
+      GATEWAY_DEFAULT_K: ${GATEWAY_DEFAULT_K:-12}
+      BUNDLE_CACHE_TTL_SECONDS: ${BUNDLE_CACHE_TTL_SECONDS:-300}
+      DEFAULT_NAMESPACE: ${DEFAULT_NAMESPACE:-default}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      index:
+        condition: service_started
+      standards:
+        condition: service_started
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  ollama_data:

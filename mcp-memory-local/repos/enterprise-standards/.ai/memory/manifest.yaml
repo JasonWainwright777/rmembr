@@ -1,0 +1,15 @@
+pack_version: 1
+scope:
+  repo: enterprise-standards
+  namespace: default
+owners:
+  - platform-architecture
+required_files:
+  - instructions.md
+classification: internal
+embedding:
+  model: nomic-embed-text
+  dims: 768
+  version: locked
+override_policy:
+  allow_repo_overrides: false

@@ -1,0 +1,18 @@
+pack_version: 1
+scope:
+  repo: sample-repo-b
+  namespace: default
+owners:
+  - data-engineering
+required_files:
+  - instructions.md
+classification: internal
+embedding:
+  model: nomic-embed-text
+  dims: 768
+  version: locked
+references:
+  standards:
+    - enterprise/terraform/module-versioning
+override_policy:
+  allow_repo_overrides: false

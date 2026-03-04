@@ -1,0 +1,19 @@
+pack_version: 1
+scope:
+  repo: sample-repo-a
+  namespace: default
+owners:
+  - platform-architecture
+required_files:
+  - instructions.md
+classification: internal
+embedding:
+  model: nomic-embed-text
+  dims: 768
+  version: locked
+references:
+  standards:
+    - enterprise/ado/pipelines/job-templates-v3
+    - enterprise/terraform/module-versioning
+override_policy:
+  allow_repo_overrides: false

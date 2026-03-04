@@ -56,7 +56,7 @@ The manifest locks `nomic-embed-text` at 768 dims, which is good for consistency
 
 There's no mention of structured logging, request tracing, or metrics. For a POC meant to validate enterprise viability, the system needs to demonstrate operability. Bundle assembly involves multiple service calls — without trace IDs, debugging will be painful even locally.
 
-**Recommendation:** Add OpenTelemetry trace propagation between services. Even a simple `X-Request-ID` header passed through Gateway → Index → Standards would suffice for POC.
+**Recommendation:** Add OpenTelemetry trace propagation between services. Even a simple `X-Request-ID` header passed through Gateway -> Index -> Standards would suffice for POC.
 
 ### 4. Bundle determinism is underspecified (4/10 severity)
 
@@ -122,7 +122,7 @@ The current design assumes a single tenant. In an enterprise, there will be mult
 
 ### 3. No bundle caching or idempotency (5/10 severity)
 
-Every `get_context_bundle` call runs the full pipeline: embed query → vector search → fetch standards → assemble. At enterprise scale with agents making repeated similar queries, this is wasteful. There's no caching layer or bundle deduplication.
+Every `get_context_bundle` call runs the full pipeline: embed query -> vector search -> fetch standards -> assemble. At enterprise scale with agents making repeated similar queries, this is wasteful. There's no caching layer or bundle deduplication.
 
 **Recommendation:** Add a `bundle_cache` table keyed on `(repo, task_hash, ref, standards_version)` with a TTL. Prototype this in Phase 4.
 
@@ -134,7 +134,7 @@ If Ollama goes down, the entire Index service is non-functional — not just ing
 
 ### 5. Standards versioning is underspecified (5/10 severity)
 
-The plan uses `version=local` for standards but doesn't describe how versioned standards coexist. When enterprise standards change (e.g., Terraform module versioning v3 → v4), repos pinned to v3 need to keep getting v3 content. The `get_standard(id, version)` API exists but the storage and resolution mechanism isn't described.
+The plan uses `version=local` for standards but doesn't describe how versioned standards coexist. When enterprise standards change (e.g., Terraform module versioning v3 -> v4), repos pinned to v3 need to keep getting v3 content. The `get_standard(id, version)` API exists but the storage and resolution mechanism isn't described.
 
 **Recommendation:** Define how standards versions map to Git tags or directory structures. Prototype at least two versions of one standard to validate the resolution logic.
 
