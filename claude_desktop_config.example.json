@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "local-ai-memory": {
+      "command": "python",
+      "args": ["-m", "src.server"],
+      "cwd": "/path/to/local-ai-memory",
+      "env": {
+        "POSTGRES_USER": "memory",
+        "POSTGRES_PASSWORD": "changeme",
+        "POSTGRES_DB": "ai_memory",
+        "POSTGRES_HOST": "127.0.0.1",
+        "POSTGRES_PORT": "5432"
+      }
+    }
+  }
+}

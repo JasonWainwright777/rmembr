@@ -1,0 +1,13 @@
+[project]
+name = "local-ai-memory"
+version = "0.1.0"
+description = "Local AI memory layer with vector search via MCP"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.0.0,<2.0.0",
+    "psycopg[binary]>=3.1,<4.0",
+    "sentence-transformers>=2.2,<4.0",
+]
+
+[project.scripts]
+local-ai-memory = "src.server:main"
