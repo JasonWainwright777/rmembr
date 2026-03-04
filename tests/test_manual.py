@@ -15,7 +15,7 @@ from src.embeddings import EMBEDDING_DIM, embed
 
 
 def test_embedding_dimension():
-    """Unit: embed() returns a list of exactly 384 floats."""
+    """Unit: embed() returns a list of exactly 768 floats."""
     vec = embed("hello world")
     assert isinstance(vec, list), f"Expected list, got {type(vec)}"
     assert len(vec) == EMBEDDING_DIM, f"Expected {EMBEDDING_DIM} dims, got {len(vec)}"

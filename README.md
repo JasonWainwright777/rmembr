@@ -24,7 +24,11 @@ search.
    pip install -e .
    ```
 
-   The first run will download the `all-MiniLM-L6-v2` model (~90 MB).
+   Requires [Ollama](https://ollama.com/download) running with the embedding model pulled:
+
+   ```bash
+   ollama pull nomic-embed-text
+   ```
 
 3. **Configure Claude Desktop:**
 

@@ -57,13 +57,13 @@ in a new directory (`local-ai-memory/`), separate from the governance framework.
 
 6. Create `local-ai-memory/sql/init.sql` with:
    - `CREATE EXTENSION IF NOT EXISTS vector;`
-   - `thoughts` table (id, created_at, source, text, metadata jsonb, embedding vector(384)).
+   - `thoughts` table (id, created_at, source, text, metadata jsonb, embedding vector(768)).
 7. Wire `init.sql` into docker-compose as an init script mount.
 
 ### Phase 3 — Embedding module
 
 8. Create `local-ai-memory/src/embeddings.py`:
-   - Default: Sentence-Transformers `all-MiniLM-L6-v2` (384 dims, local, no API key).
+   - Default: `nomic-embed-text` via Ollama (768 dims, local, no API key).
    - Interface: `embed(text: str) -> list[float]`.
    - Model loaded once at import time.
 
@@ -98,7 +98,7 @@ in a new directory (`local-ai-memory/`), separate from the governance framework.
 
 1. Python 3.10+ is available on the dev machine.
 2. Docker Desktop is installed and running.
-3. Sentence-Transformers is the embedding path (Path B from proposal). No API keys needed.
+3. `nomic-embed-text` via Ollama is the embedding path. No API keys needed.
 4. The MCP Python SDK (`mcp`) is available via pip.
 5. This is a standalone project directory — no changes to existing CodeFactory code.
 
@@ -108,18 +108,18 @@ in a new directory (`local-ai-memory/`), separate from the governance framework.
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| Embedding dimension mismatch (model vs DB column) | Medium | Hardcode 384 in both schema and embedding module; validated in test. |
+| Embedding dimension mismatch (model vs DB column) | Medium | Hardcode 768 in both schema and embedding module; validated in test. |
 | DB credentials leak via git | High | `.env` in `.gitignore`; only `.env.example` committed. |
 | Docker port exposure beyond localhost | Medium | `docker-compose.yml` binds to `127.0.0.1:5432` explicitly. |
 | MCP SDK breaking changes | Low | Pin SDK version in `pyproject.toml`. |
-| Sentence-Transformers download size (~90MB model) | Low | One-time download; documented in README. |
+| Ollama model download size (~274MB) | Low | One-time download; documented in README. |
 | Accidental exposure of MCP server to network | Medium | Server binds to localhost; documented in config example. |
 
 ---
 
 ## Test approach
 
-1. **Unit**: `embed()` returns a list of exactly 384 floats.
+1. **Unit**: `embed()` returns a list of exactly 768 floats.
 2. **Integration**: `add_thought` inserts a row; `search_thoughts` returns it.
 3. **Semantic**: Add "The weather is sunny" and "It is raining"; search "nice day outside" returns the sunny thought first.
 4. **Safety**: Verify `.env` is gitignored; verify Docker binds to 127.0.0.1 only.

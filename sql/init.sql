@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS thoughts (
     source        TEXT,
     text          TEXT NOT NULL,
     metadata      JSONB DEFAULT '{}',
-    embedding     vector(384) NOT NULL
+    embedding     vector(768) NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_thoughts_embedding

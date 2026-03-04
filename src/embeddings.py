@@ -1,14 +1,18 @@
-"""Embedding generation using Sentence-Transformers (all-MiniLM-L6-v2, 384 dims)."""
+"""Embedding generation using nomic-embed-text via Ollama (768 dims)."""
 
-from sentence_transformers import SentenceTransformer
+import httpx
 
-MODEL_NAME = "all-MiniLM-L6-v2"
-EMBEDDING_DIM = 384
-
-_model = SentenceTransformer(MODEL_NAME)
+OLLAMA_BASE_URL = "http://localhost:11434"
+MODEL_NAME = "nomic-embed-text"
+EMBEDDING_DIM = 768
 
 
 def embed(text: str) -> list[float]:
-    """Return a 384-dimensional embedding for the given text."""
-    vector = _model.encode(text, normalize_embeddings=True)
-    return vector.tolist()
+    """Return a 768-dimensional embedding for the given text."""
+    response = httpx.post(
+        f"{OLLAMA_BASE_URL}/api/embeddings",
+        json={"model": MODEL_NAME, "prompt": text},
+        timeout=30.0,
+    )
+    response.raise_for_status()
+    return response.json()["embedding"]

@@ -29,10 +29,8 @@ This plan is optimized for a **local test** that proves:
 
 ### Minimal local architecture
 - **Postgres + pgvector** (vector storage + similarity search)
-- **Embedding generator** (choose one)
-  - Local: **Ollama embedding model** (e.g., `nomic-embed-text`)
-  - Local: **Sentence-Transformers** (e.g., `all-MiniLM-L6-v2`, 384 dims)
-  - Remote (optional): OpenRouter/OpenAI embeddings
+- **Embedding generator**: **nomic-embed-text via Ollama** (768 dims, runs fully local, no API keys required)
+
 - **Local MCP Server** (Node or Python) exposing:
   - `add_thought(text, metadata?)`
   - `search_thoughts(query, top_k?, filters?)`
@@ -50,23 +48,15 @@ Supabase local alternative: https://supabase.com/docs/guides/local-development
 - Pros: simple, local, familiar SQL, easy backup, good enough for MVP
 - Cons: less “managed” UX than Supabase; you maintain the container
 
-### 3.2 Embeddings: pick one path
+### 3.2 Embeddings: nomic-embed-text via Ollama
 
-#### Path A — Local embeddings with Ollama (fast to test)
-- Use Ollama’s embedding-only model `nomic-embed-text` for local embedding generation.
+- Embeddings are generated **locally** using [Ollama](https://ollama.com/download)
+- The model used is **`nomic-embed-text`** (768-dimensional embeddings)
+- **No external API keys are required** — everything runs on your machine
 - Model info + usage: https://ollama.com/library/nomic-embed-text
 
-#### Path B — Local embeddings with Sentence-Transformers (portable)
-- Use `sentence-transformers/all-MiniLM-L6-v2` (384-dimensional embeddings)
-- Model card: https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2  
-- SBERT docs: https://sbert.net/
-
-#### Path C — Remote embeddings (only if you want “SaaS-like” behavior)
-- Use OpenAI/OpenRouter embeddings for parity with hosted stacks.
-- Keep as a later toggle so local testing isn’t blocked on keys/billing.
-
-> **Important:** Your pgvector column dimension must match your embedding model output.  
-> Example: `all-MiniLM-L6-v2` → **384 dims**.
+> **Important:** Your pgvector column dimension must match your embedding model output.
+> `nomic-embed-text` → **768 dims**.
 
 ### 3.3 MCP client integration
 - Claude Desktop supports connecting to local MCP servers and uses a config file location on Windows/macOS.
@@ -91,7 +81,7 @@ Claude Desktop extension guidance (optional): https://support.claude.com/en/arti
 - [ ] Docker Desktop running
 - [ ] `docker version` works
 - [ ] Decide MCP server language (Node or Python)
-- [ ] Decide embedding path (A, B, or C)
+- [ ] Ollama installed (https://ollama.com/download)
 
 ---
 
@@ -118,7 +108,7 @@ Connect:
 docker exec -it pgvector-local psql -U postgres
 ```
 
-Schema (example using 384 dims; adjust if you change models):
+Schema (using 768 dims for `nomic-embed-text`):
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
 
@@ -128,7 +118,7 @@ CREATE TABLE IF NOT EXISTS thoughts (
   source       text,
   text         text NOT NULL,
   metadata     jsonb NOT NULL DEFAULT '{}'::jsonb,
-  embedding    vector(384) NOT NULL
+  embedding    vector(768) NOT NULL
 );
 
 -- Helpful index for cosine distance queries (adjust ops based on your chosen metric)
@@ -142,37 +132,36 @@ CREATE TABLE IF NOT EXISTS thoughts (
 
 ---
 
-### Phase 2 — Embedding generator
+### Phase 2 — Embedding generator (nomic-embed-text via Ollama)
 
-Pick one.
+#### 1. Install Ollama
 
-#### Path A: Ollama embedding service (local)
-1) Install Ollama and run it
-2) Pull the embedding model:
+Download and install from: https://ollama.com/download
+
+#### 2. Pull the embedding model
 ```powershell
 ollama pull nomic-embed-text
 ```
 
-3) Confirm it works (example requests are shown on the model page):  
-https://ollama.com/library/nomic-embed-text
+#### 3. Verify it works
 
-**Deliverables**
-- [ ] You can call Ollama embeddings locally and get a numeric vector
-
-#### Path B: Sentence-Transformers (local Python)
-1) Create venv and install:
+Test with a curl request:
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install sentence-transformers psycopg[binary]
+curl http://localhost:11434/api/embeddings `
+  -d '{
+    "model": "nomic-embed-text",
+    "prompt": "example text"
+  }'
 ```
 
-2) Verify embedding dimension is 384 for `all-MiniLM-L6-v2`:
-- Model card notes 384-d vectors:
-  https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
+You should get back a JSON response containing a 768-dimensional embedding vector.
+
+Model info: https://ollama.com/library/nomic-embed-text
 
 **Deliverables**
-- [ ] You can embed text into a 384-length list/array
+- [ ] Ollama installed and running
+- [ ] `nomic-embed-text` model pulled
+- [ ] You can call the Ollama embeddings API locally and get a 768-length numeric vector
 
 ---
 
@@ -193,7 +182,7 @@ pip install sentence-transformers psycopg[binary]
 
 **SQL search example (cosine distance):**
 ```sql
--- given: :query_embedding is vector(384)
+-- given: :query_embedding is vector(768)
 SELECT
   id, created_at, source, text, metadata,
   1 - (embedding <=> :query_embedding) AS similarity
@@ -257,7 +246,7 @@ https://modelcontextprotocol.io/docs/develop/connect-local-servers
 ## 6) Milestones (recommended order)
 
 1) **M1: Vector DB online** (pgvector container + schema)
-2) **M2: Embeddings online** (Ollama *or* Sentence-Transformers)
+2) **M2: Embeddings online** (nomic-embed-text via Ollama)
 3) **M3: MCP tools working** (add/search)
 4) **M4: Client integration** (Claude Desktop can call tools)
 5) **M5: V1 enhancements** (metadata, filters, indexing)
@@ -307,6 +296,5 @@ If you want closer parity with the SaaS concept:
 - pgvector: https://github.com/pgvector/pgvector  
 - pgvector Docker run example: https://www.yugabyte.com/blog/postgresql-pgvector-getting-started/  
 - Supabase local dev: https://supabase.com/docs/guides/local-development  
-- Ollama embeddings model: https://ollama.com/library/nomic-embed-text  
-- all-MiniLM-L6-v2 model card: https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2  
-- Sentence-Transformers docs: https://sbert.net/
+- Ollama download: https://ollama.com/download
+- nomic-embed-text model: https://ollama.com/library/nomic-embed-text
