@@ -273,6 +273,61 @@ Unique constraint: `cache_key`
 | `idx_bundle_cache_key` | B-tree | bundle_cache | `cache_key` | Cache lookups |
 | `idx_bundle_cache_key_unique` | Unique B-tree | bundle_cache | `cache_key` | Upsert deduplication |
 
+## Monitoring
+
+The gateway exposes Prometheus metrics at `/metrics` when `prometheus_client` is installed. This endpoint is part of the gateway server and is active regardless of whether the monitoring profile is enabled.
+
+### Metrics Endpoint
+
+- **URL:** `http://localhost:8080/metrics`
+- **Format:** Prometheus text exposition (text/plain; version=0.0.4)
+- **Binding:** Controlled by `METRICS_BIND_HOST` env var (default `127.0.0.1`, set to `0.0.0.0` in docker-compose for container access)
+
+### Available Metrics
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `mcp_tool_call_duration_seconds` | Histogram | `tool`, `cache_state` | Tool call latency |
+| `mcp_tool_call_total` | Counter | `tool`, `status` | Total tool calls (success/error/denied) |
+| `mcp_tool_call_errors_total` | Counter | `tool` | Total tool call errors |
+| `mcp_dependency_health` | Gauge | `dependency` | Dependency health (1=up, 0=down) |
+| `mcp_dependency_health_last_probe_timestamp` | Gauge | `dependency` | Unix epoch of last health probe |
+
+### Monitoring Stack (Optional)
+
+Enable Prometheus and Grafana with the monitoring profile:
+
+```bash
+docker compose --profile monitoring up -d
+```
+
+- **Prometheus:** `http://localhost:9090` — scrapes gateway `/metrics` every 15s
+- **Grafana:** `http://localhost:3000` — default credentials: admin/admin
+
+Import the gateway dashboard:
+1. Open Grafana at `http://localhost:3000`
+2. Go to Dashboards → Import
+3. Upload `monitoring/dashboards/gateway-overview.json`
+
+### Alert Rules
+
+Alert rules are defined in `monitoring/alerts/gateway-alerts.yaml`:
+
+| Alert | Condition | Severity |
+|-------|-----------|----------|
+| `SearchLatencyP95High` | search p95 > 1.5s for 5m | warning |
+| `BundleLatencyP95High` | bundle p95 > 4.0s for 5m | warning |
+| `HighErrorRate` | error rate > 1% for 5m | critical |
+| `DependencyDown` | dependency health = 0 for 1m | critical |
+| `DependencyProbeStale` | probe age > 90s for 2m | warning |
+
+### Environment Variables (Monitoring)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `METRICS_BIND_HOST` | `127.0.0.1` | Bind address for metrics. Set to `0.0.0.0` in Docker. |
+| `GRAFANA_ADMIN_PASSWORD` | `admin` | Grafana admin password |
+
 ## Logging Format and Request Tracing
 
 All services use structured logging with request ID propagation.

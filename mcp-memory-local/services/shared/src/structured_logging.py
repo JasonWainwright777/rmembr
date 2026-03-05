@@ -73,12 +73,17 @@ def setup_logging(service_name: str, level: int = logging.INFO) -> logging.Logge
 
 
 class TimedOperation:
-    """Context manager that logs operation duration."""
+    """Context manager that logs operation duration.
 
-    def __init__(self, logger: logging.Logger, tool: str, message: str):
+    When prometheus_client is installed, also records a histogram observation
+    via the shared metrics module.
+    """
+
+    def __init__(self, logger: logging.Logger, tool: str, message: str, cache_state: str | None = None):
         self.logger = logger
         self.tool = tool
         self.message = message
+        self.cache_state = cache_state
         self.start = 0.0
 
     def __enter__(self):
@@ -86,10 +91,23 @@ class TimedOperation:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        duration_ms = round((time.monotonic() - self.start) * 1000, 2)
+        duration_s = time.monotonic() - self.start
+        duration_ms = round(duration_s * 1000, 2)
         extra = {"tool": self.tool, "duration_ms": duration_ms}
         if exc_val:
             self.logger.error(self.message, extra=extra, exc_info=(exc_type, exc_val, exc_tb))
         else:
             self.logger.info(f"{self.message} completed", extra=extra)
+        # Record Prometheus histogram observation if available
+        try:
+            from metrics import observe_latency, count_call, count_error
+            cache = self.cache_state or "miss"
+            observe_latency(self.tool, duration_s, cache)
+            if exc_val:
+                count_call(self.tool, "error")
+                count_error(self.tool)
+            else:
+                count_call(self.tool, "success")
+        except ImportError:
+            pass
         return False

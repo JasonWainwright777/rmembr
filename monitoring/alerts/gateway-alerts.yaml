@@ -1,0 +1,47 @@
+groups:
+  - name: gateway_slo
+    rules:
+      - alert: SearchLatencyP95High
+        expr: histogram_quantile(0.95, rate(mcp_tool_call_duration_seconds_bucket{tool="search_repo_memory"}[5m])) > 1.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "search_repo_memory p95 latency exceeds 1.5s SLO"
+          description: "Current p95: {{ $value | humanizeDuration }}. Runbook: docs/operations/runbook.md Scenario 4."
+
+      - alert: BundleLatencyP95High
+        expr: histogram_quantile(0.95, rate(mcp_tool_call_duration_seconds_bucket{tool="get_context_bundle"}[5m])) > 4.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "get_context_bundle p95 latency exceeds 4.0s SLO"
+          description: "Current p95: {{ $value | humanizeDuration }}. Runbook: docs/operations/runbook.md Scenario 4."
+
+      - alert: HighErrorRate
+        expr: rate(mcp_tool_call_total{status="error"}[5m]) / rate(mcp_tool_call_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MCP tool error rate exceeds 1%"
+          description: "Error rate: {{ $value | humanizePercentage }}. Check gateway logs for error patterns."
+
+      - alert: DependencyDown
+        expr: mcp_dependency_health == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dependency {{ $labels.dependency }} is unhealthy"
+          description: "{{ $labels.dependency }} has been down for >1m. Runbook: docs/operations/runbook.md Scenario 1 (ollama), Scenario 2 (postgres)."
+
+      - alert: DependencyProbeStale
+        expr: time() - mcp_dependency_health_last_probe_timestamp > 90
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dependency health probe for {{ $labels.dependency }} has not run in over 90 seconds"
+          description: "Last probe: {{ $value | humanizeDuration }} ago. Gateway background task may have stalled."

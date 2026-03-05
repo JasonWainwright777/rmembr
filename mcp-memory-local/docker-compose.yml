@@ -76,6 +76,7 @@ services:
     environment:
       INDEX_URL: http://index:8081
       STANDARDS_URL: http://standards:8082
+      OLLAMA_URL: http://ollama:11434
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: ${POSTGRES_DB:-memory}
@@ -91,6 +92,7 @@ services:
       POLICY_FILE: ${POLICY_FILE:-}
       POLICY_HOT_RELOAD: ${POLICY_HOT_RELOAD:-false}
       GATEWAY_MAX_SOURCES: ${GATEWAY_MAX_SOURCES:-50}
+      METRICS_BIND_HOST: "0.0.0.0"
     ports:
       - "8080:8080"
     depends_on:
@@ -103,9 +105,44 @@ services:
     networks:
       - internal
 
+  prometheus:
+    image: prom/prometheus:latest
+    profiles:
+      - monitoring
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/alerts:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=24h"
+    ports:
+      - "9090:9090"
+    networks:
+      - internal
+
+  grafana:
+    image: grafana/grafana:latest
+    profiles:
+      - monitoring
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - internal
+
 networks:
   internal:
     driver: bridge
 
 volumes:
   ollama_data:
+  prometheus_data:
+  grafana_data:

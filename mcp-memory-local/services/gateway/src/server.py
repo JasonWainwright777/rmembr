@@ -1,5 +1,6 @@
 """Gateway service — orchestrates Index + Standards, returns context bundles (§5.3, §10)."""
 
+import asyncio
 import hashlib
 import json
 import os
@@ -20,6 +21,7 @@ from validation import (
 )
 from structured_logging import setup_logging, get_request_id, request_id_var, new_request_id, TimedOperation
 from audit_log import AuditLogger
+from metrics import METRICS_AVAILABLE, metrics_app, observe_latency, count_call, count_error, update_dependency_health
 
 from src.policy import PolicyLoader, PolicyBundle
 
@@ -41,9 +43,62 @@ policy_loader = PolicyLoader(
 )
 
 PROXY_TIMEOUT = 120.0
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://ollama:11434")
+HEALTH_PROBE_INTERVAL = 30  # seconds
 
 # DB pool (set in lifespan)
 pool = None
+_health_probe_task = None
+
+
+async def _check_index() -> bool:
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{INDEX_URL}/health")
+            return resp.status_code == 200
+    except Exception:
+        return False
+
+
+async def _check_standards() -> bool:
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{STANDARDS_URL}/health")
+            return resp.status_code == 200
+    except Exception:
+        return False
+
+
+async def _check_postgres() -> bool:
+    try:
+        if pool:
+            async with pool.acquire() as conn:
+                await conn.fetchval("SELECT 1")
+            return True
+    except Exception:
+        pass
+    return False
+
+
+async def _check_ollama() -> bool:
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{OLLAMA_URL}/api/version")
+            return resp.status_code == 200
+    except Exception:
+        return False
+
+
+async def _health_probe_loop():
+    """Background task: probe dependencies every HEALTH_PROBE_INTERVAL seconds."""
+    while True:
+        try:
+            await update_dependency_health(
+                _check_index, _check_standards, _check_postgres, _check_ollama
+            )
+        except Exception:
+            pass
+        await asyncio.sleep(HEALTH_PROBE_INTERVAL)
 
 
 def _internal_headers() -> dict:
@@ -215,7 +270,7 @@ def _render_markdown(bundle: dict) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global pool
+    global pool, _health_probe_task
     logger.info("Gateway service starting")
     try:
         pool = await asyncpg.create_pool(
@@ -238,14 +293,30 @@ async def lifespan(app: FastAPI):
         pool = None
     # Load policy bundle
     policy_loader.load()
+    # Start dependency health probe background task
+    if METRICS_AVAILABLE:
+        _health_probe_task = asyncio.create_task(_health_probe_loop())
+        logger.info("Dependency health probe started")
     logger.info("Gateway service ready")
     yield
+    # Cancel health probe task on shutdown
+    if _health_probe_task is not None:
+        _health_probe_task.cancel()
+        try:
+            await _health_probe_task
+        except asyncio.CancelledError:
+            pass
+        _health_probe_task = None
     if pool:
         await pool.close()
     logger.info("Gateway service stopped")
 
 
 app = FastAPI(title="MCP Memory Gateway", lifespan=lifespan)
+
+# Mount /metrics endpoint when prometheus_client is available
+if METRICS_AVAILABLE and metrics_app is not None:
+    app.mount("/metrics", metrics_app)
 
 
 @app.middleware("http")
@@ -263,28 +334,9 @@ async def request_id_middleware(request: Request, call_next):
 
 async def handle_health() -> dict:
     """Health check handler — returns dependency status."""
-    index_ok = False
-    standards_ok = False
-    pg_ok = False
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(f"{INDEX_URL}/health")
-            index_ok = resp.status_code == 200
-    except Exception:
-        pass
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(f"{STANDARDS_URL}/health")
-            standards_ok = resp.status_code == 200
-    except Exception:
-        pass
-    try:
-        if pool:
-            async with pool.acquire() as conn:
-                await conn.fetchval("SELECT 1")
-            pg_ok = True
-    except Exception:
-        pass
+    index_ok = await _check_index()
+    standards_ok = await _check_standards()
+    pg_ok = await _check_postgres()
 
     all_ok = index_ok and standards_ok and pg_ok
     return {

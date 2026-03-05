@@ -1,0 +1,12 @@
+# Compatibility Waivers
+#
+# One tool name per line. Tools listed here are excluded from
+# compatibility policy checks in scripts/check_compatibility.py.
+#
+# Each waiver must be documented in DECISION_LOG.md with:
+# - Tool name
+# - Justification
+# - Board approval reference
+# - Expiry date
+#
+# Remove expired waivers promptly.

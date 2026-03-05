@@ -1,16 +1,20 @@
 # SLO Targets
 
-**Version:** 0.1.0
-**Status:** Provisional (Phase 0)
+**Version:** v1.0.0
+**Status:** Instrumented (Phase 6)
 **Last Updated:** 2026-03-05
 
 ---
 
-## Status: Initial / Provisional
+## Status: Instrumented
 
-These targets are set based on architectural expectations, not empirical measurement. They will be re-evaluated after Phase 1 benchmarks are available.
+These targets are now instrumented via Prometheus metrics (`mcp_tool_call_duration_seconds` histogram with `cache_state` label). Validation tests in `tests/mcp/test_slo_validation.py` capture p50/p95 latency by warm/cold cache state and assert against these thresholds. Grafana dashboard (`monitoring/dashboards/gateway-overview.json`) visualizes latency percentiles split by cache state with SLO threshold annotations.
 
-**Re-evaluation trigger:** Completion of Phase 1 implementation with at least 100 indexed chunks and 50 recorded query latencies.
+**Metrics module:** `mcp-memory-local/services/shared/src/metrics.py`
+**Dashboard:** `monitoring/dashboards/gateway-overview.json`
+**Alert rules:** `monitoring/alerts/gateway-alerts.yaml`
+
+**Re-evaluation trigger:** SLO validation test failures indicating thresholds need adjustment based on empirical measurement.
 
 ---
 

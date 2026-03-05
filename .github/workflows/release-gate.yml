@@ -1,0 +1,16 @@
+name: Release Gate
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  compatibility-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run compatibility policy gate
+        run: python scripts/check_compatibility.py
