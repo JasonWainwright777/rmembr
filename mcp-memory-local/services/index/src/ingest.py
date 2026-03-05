@@ -9,9 +9,11 @@ from chunking import chunk_markdown, Chunk
 from manifest import parse_manifest
 from src.embeddings import embed_texts
 
+from src.providers import LocationProvider, ProviderRegistry, RepoDescriptor
 
-async def index_repo(pool, repo: str, ref: str = "local") -> dict:
-    """Index a single repo's memory pack.
+
+async def index_repo(pool, repo_desc: RepoDescriptor, ref: str = "local") -> dict:
+    """Index a single repo's memory pack using its provider.
 
     Content-hash upsert logic (§4.3):
     1. Compute content_hash (SHA-256 of chunk_text)
@@ -20,16 +22,9 @@ async def index_repo(pool, repo: str, ref: str = "local") -> dict:
     4. If content_hash differs -> re-embed and upsert
     5. If chunk no longer in source -> delete stale row
     """
-    repos_root = Path(os.environ.get("REPOS_ROOT", "/repos"))
-    repo_path = repos_root / repo
-    memory_path = repo_path / ".ai" / "memory"
-
-    if not memory_path.exists():
-        return {"error": f"No .ai/memory directory found in repo '{repo}'"}
-
-    # Parse manifest
-    manifest_path = memory_path / "manifest.yaml"
-    manifest = parse_manifest(manifest_path)
+    provider_name = repo_desc.provider_name
+    repo = repo_desc.repo
+    manifest_meta = repo_desc.metadata or {}
 
     # Upsert memory_packs record
     async with pool.acquire() as conn:
@@ -45,25 +40,21 @@ async def index_repo(pool, repo: str, ref: str = "local") -> dict:
                 last_indexed_ref = EXCLUDED.last_indexed_ref,
                 updated_at = now()
             """,
-            manifest.scope_namespace,
+            repo_desc.namespace,
             repo,
-            manifest.pack_version,
-            str(manifest.owners).replace("'", '"'),
-            manifest.classification,
-            manifest.embedding_model,
+            manifest_meta.get("pack_version", 1),
+            str(manifest_meta.get("owners", [])).replace("'", '"'),
+            manifest_meta.get("classification", "internal"),
+            manifest_meta.get("embedding_model", "nomic-embed-text"),
             ref,
         )
 
-    # Collect all markdown files
-    md_files = list(memory_path.rglob("*.md")) + list(memory_path.rglob("*.yaml"))
-    # Exclude manifest.yaml itself from chunking
-    md_files = [f for f in md_files if f.name != "manifest.yaml"]
-
+    # Enumerate documents and fetch content via provider
+    provider = _get_provider_for_repo(repo_desc)
     all_chunks: list[Chunk] = []
-    for md_file in md_files:
-        relative_path = str(md_file.relative_to(repo_path))
-        content = md_file.read_text(encoding="utf-8")
-        chunks = chunk_markdown(relative_path, content)
+    async for doc_desc in provider.enumerate_documents(repo_desc):
+        doc_content = await provider.fetch_content(doc_desc)
+        chunks = chunk_markdown(doc_desc.path, doc_content.text)
         all_chunks.extend(chunks)
 
     # Determine which chunks need embedding
@@ -115,12 +106,14 @@ async def index_repo(pool, repo: str, ref: str = "local") -> dict:
                         namespace, source_kind, repo, ref_type, ref,
                         path, anchor, heading, chunk_text, metadata_json,
                         content_hash, embedding_model, embedding_version,
-                        embedding, classification
+                        embedding, classification,
+                        provider_name, external_id
                     ) VALUES (
                         $1, 'repo_memory', $2, 'branch', $3,
                         $4, $5, $6, $7, $8::jsonb,
                         $9, $10, $11,
-                        $12::vector, $13
+                        $12::vector, $13,
+                        $14, $15
                     )
                     ON CONFLICT (repo, path, anchor, ref) DO UPDATE SET
                         chunk_text = EXCLUDED.chunk_text,
@@ -131,9 +124,11 @@ async def index_repo(pool, repo: str, ref: str = "local") -> dict:
                         embedding_model = EXCLUDED.embedding_model,
                         embedding_version = EXCLUDED.embedding_version,
                         classification = EXCLUDED.classification,
+                        provider_name = EXCLUDED.provider_name,
+                        external_id = EXCLUDED.external_id,
                         updated_at = now()
                     """,
-                    manifest.scope_namespace,
+                    repo_desc.namespace,
                     repo,
                     ref,
                     chunk.path,
@@ -142,10 +137,12 @@ async def index_repo(pool, repo: str, ref: str = "local") -> dict:
                     chunk.chunk_text,
                     "{}",
                     chunk.content_hash,
-                    manifest.embedding_model,
-                    manifest.embedding_version,
+                    manifest_meta.get("embedding_model", "nomic-embed-text"),
+                    manifest_meta.get("embedding_version", "locked"),
                     embedding_str,
-                    manifest.classification,
+                    manifest_meta.get("classification", "internal"),
+                    provider_name,
+                    repo_desc.external_id,
                 )
                 if is_new:
                     new_count += 1
@@ -171,15 +168,29 @@ async def index_repo(pool, repo: str, ref: str = "local") -> dict:
     }
 
 
-async def index_all(pool, ref: str = "local") -> dict:
-    """Index all repos found under REPOS_ROOT."""
-    repos_root = Path(os.environ.get("REPOS_ROOT", "/repos"))
+async def index_all(pool, registry: ProviderRegistry, ref: str = "local") -> dict:
+    """Index all repos from all active providers."""
     results = []
-    for repo_dir in sorted(repos_root.iterdir()):
-        if repo_dir.is_dir() and (repo_dir / ".ai" / "memory").exists():
-            result = await index_repo(pool, repo_dir.name, ref)
+    for provider in registry.active_providers():
+        async for repo_desc in provider.enumerate_repos():
+            result = await index_repo(pool, repo_desc, ref)
             results.append(result)
     return {
         "repos_indexed": len(results),
         "results": results,
     }
+
+
+# Module-level registry reference, set by server.py during lifespan
+_registry: ProviderRegistry | None = None
+
+
+def set_registry(registry: ProviderRegistry) -> None:
+    global _registry
+    _registry = registry
+
+
+def _get_provider_for_repo(repo_desc: RepoDescriptor) -> LocationProvider:
+    if _registry is None:
+        raise RuntimeError("ProviderRegistry not initialized")
+    return _registry.get(repo_desc.provider_name)

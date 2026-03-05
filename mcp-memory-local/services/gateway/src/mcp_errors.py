@@ -41,11 +41,19 @@ def map_runtime_error(exc: RuntimeError) -> tuple[int, str]:
     return INTERNAL_ERROR, sanitize_message(str(exc))
 
 
+def map_authorization_error(exc) -> tuple[int, str]:
+    """Map an AuthorizationError to MCP error code and sanitized message."""
+    return INVALID_PARAMS, sanitize_message(str(exc))
+
+
 def map_exception(exc: Exception) -> tuple[int, str]:
     """Map any exception to the appropriate MCP error code and sanitized message."""
     # Import here to avoid circular imports at module level
     from validation import ValidationError
+    from src.policy.authz import AuthorizationError
 
+    if isinstance(exc, AuthorizationError):
+        return map_authorization_error(exc)
     if isinstance(exc, ValidationError):
         return map_validation_error(exc)
     if isinstance(exc, LookupError):

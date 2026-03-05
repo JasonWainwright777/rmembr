@@ -278,6 +278,19 @@ python scripts/watch-reindex.py
 | `GATEWAY_URL` | `http://localhost:8080` | Gateway endpoint |
 | `REPOS_ROOT` | `../repos` (relative to script) | Root directory to watch |
 
+## MCP Client Integration
+
+rmembr exposes all 9 tools via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) over SSE transport. Any MCP-compatible client can discover and invoke tools directly.
+
+**Setup guides:**
+
+- **VS Code 1.102+:** [docs/integration/vscode-mcp.md](integration/vscode-mcp.md) -- primary supported client
+- **Claude Code:** [docs/integration/claude-code-mcp.md](integration/claude-code-mcp.md) -- secondary supported client
+
+**Quick start:** Set `MCP_ENABLED=true` in your `.env`, restart the gateway, and add the appropriate config file for your client. See the integration guides for full details.
+
+**UAT checklist:** [docs/integration/uat-checklist.md](integration/uat-checklist.md) -- manual validation steps for verifying MCP client interoperability.
+
 ## Example Workflows
 
 ### Human Developer

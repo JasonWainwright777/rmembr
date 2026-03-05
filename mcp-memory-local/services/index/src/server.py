@@ -9,8 +9,11 @@ from fastapi.responses import JSONResponse
 
 from src.db import create_pool
 from src.migrations import run_migrations
-from src.ingest import index_repo as do_index_repo, index_all as do_index_all
-from src.search import search_repo_memory as do_search, resolve_context as do_resolve
+from src.ingest import index_repo as do_index_repo, index_all as do_index_all, set_registry
+from src.search import search_repo_memory as do_search, resolve_context as do_resolve, set_engine
+from src.retrieval import RetrievalEngine, RankingConfig
+from src.providers import ProviderRegistry
+from src.providers.filesystem import FilesystemProvider
 
 # Use shared library imports via path
 import sys
@@ -22,14 +25,30 @@ from auth import InternalAuthMiddleware
 
 logger = setup_logging("index")
 pool = None
+registry = None
+retrieval_engine = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global pool
+    global pool, registry, retrieval_engine
     logger.info("Index service starting")
     pool = await create_pool()
     await run_migrations(pool)
+
+    # Initialize retrieval engine with ranking config from env
+    ranking_config = RankingConfig.from_env()
+    retrieval_engine = RetrievalEngine(ranking_config)
+    set_engine(retrieval_engine)
+    logger.info(f"RetrievalEngine initialized with config: path_boost={ranking_config.path_boost_weight}, freshness_boost={ranking_config.freshness_boost_weight}, freshness_window={ranking_config.freshness_window_hours}h")
+
+    # Initialize provider registry
+    registry = ProviderRegistry()
+    registry.register(FilesystemProvider())
+    set_registry(registry)
+    active = registry.active_providers()
+    logger.info(f"Active providers: {[p.name for p in active]}")
+
     logger.info("Index service ready")
     yield
     if pool:
@@ -81,8 +100,23 @@ async def tool_index_repo(request: Request):
     except ValidationError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
 
+    provider_name = body.get("provider", "filesystem")
+    try:
+        provider = registry.get(provider_name)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+    # Find the repo descriptor from the provider
+    repo_desc = None
+    async for rd in provider.enumerate_repos():
+        if rd.repo == repo:
+            repo_desc = rd
+            break
+    if repo_desc is None:
+        return JSONResponse({"error": f"Repo '{repo}' not found via provider '{provider_name}'"}, status_code=404)
+
     with TimedOperation(logger, "index_repo", f"Indexing {repo}"):
-        result = await do_index_repo(pool, repo, ref)
+        result = await do_index_repo(pool, repo_desc, ref)
     return result
 
 
@@ -93,7 +127,7 @@ async def tool_index_all(request: Request):
     ref = body.get("ref", "local")
 
     with TimedOperation(logger, "index_all", "Indexing all repos"):
-        result = await do_index_all(pool, ref)
+        result = await do_index_all(pool, registry, ref)
     return result
 
 

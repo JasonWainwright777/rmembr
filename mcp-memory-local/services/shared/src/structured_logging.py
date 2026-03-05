@@ -47,6 +47,15 @@ class JSONFormatter(logging.Formatter):
             log_entry["duration_ms"] = record.duration_ms
         if record.exc_info and record.exc_info[1]:
             log_entry["error"] = str(record.exc_info[1])
+        # Audit log fields
+        if getattr(record, "audit", False):
+            log_entry["audit"] = True
+            for field in ("action", "subject", "repo", "provenance_refs", "correlation_id"):
+                val = getattr(record, field, None)
+                if val is not None:
+                    log_entry[field] = val
+            if hasattr(record, "error") and not log_entry.get("error"):
+                log_entry["error"] = record.error
         return json.dumps(log_entry)
 
 

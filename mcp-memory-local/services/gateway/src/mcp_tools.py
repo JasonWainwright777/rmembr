@@ -5,6 +5,7 @@ Index/Standards services.
 """
 
 import json
+import time
 
 from mcp.server import Server
 from mcp.types import Tool, TextContent
@@ -17,7 +18,12 @@ from src.server import (
     handle_proxy,
     INDEX_URL,
     STANDARDS_URL,
+    PROXY_TIMEOUT,
+    policy_loader,
+    audit_logger,
 )
+from src.policy import ToolAuthz, AuthorizationError
+from structured_logging import get_request_id
 
 
 # --- Tool schema definitions (from docs/contracts/gateway-mcp-tools.md) ---
@@ -170,29 +176,90 @@ _TOOL_DISPATCH = {
 }
 
 
-async def dispatch_tool(name: str, arguments: dict) -> list[TextContent]:
+async def dispatch_tool(name: str, arguments: dict, role: str | None = None) -> list[TextContent]:
     """Dispatch an MCP tool call to the appropriate handler.
 
     Returns list of TextContent with JSON result on success.
-    Raises tuple (error_code, message) on failure.
+    Raises McpToolError on failure.
     """
     entry = _TOOL_DISPATCH.get(name)
     if not entry:
         raise ValueError(f"Unknown tool: {name}")
 
+    policy = policy_loader.policy
+    correlation_id = get_request_id()
+    effective_role = role or policy.tool_auth.default_role
+    repo = arguments.get("repo", "")
+
+    # Per-tool authorization check (deny-by-default)
+    authz = ToolAuthz(policy.tool_auth)
+    if not authz.authorize(name, effective_role):
+        audit_logger.log_tool_call(
+            tool=name,
+            action="deny",
+            subject=effective_role,
+            repo=repo,
+            correlation_id=correlation_id,
+        )
+        raise McpToolError(
+            *map_exception(AuthorizationError(name, effective_role))
+        )
+
+    # Per-tool timeout from budget policy
+    tool_timeout = policy.budgets.tool_timeouts.get(name)
+
+    # Clamp k to max_sources if present
+    if "k" in arguments and arguments["k"] > policy.budgets.max_sources:
+        arguments = {**arguments, "k": policy.budgets.max_sources}
+
     kind, target = entry
+    start = time.monotonic()
     try:
         if kind == "gateway":
             result = await target(arguments)
         elif kind == "proxy_index":
+            timeout = float(tool_timeout) if tool_timeout else PROXY_TIMEOUT
             result = await handle_proxy(INDEX_URL, f"/tools/{target}", arguments)
         elif kind == "proxy_standards":
+            timeout = float(tool_timeout) if tool_timeout else PROXY_TIMEOUT
             result = await handle_proxy(STANDARDS_URL, f"/tools/{target}", arguments)
         else:
             raise ValueError(f"Unknown dispatch kind: {kind}")
+    except McpToolError:
+        raise
     except Exception as exc:
+        duration_ms = round((time.monotonic() - start) * 1000, 2)
+        audit_logger.log_tool_call(
+            tool=name,
+            action="error",
+            subject=effective_role,
+            repo=repo,
+            correlation_id=correlation_id,
+            duration_ms=duration_ms,
+            error=str(exc),
+        )
         error_code, error_msg = map_exception(exc)
         raise McpToolError(error_code, error_msg) from exc
+
+    duration_ms = round((time.monotonic() - start) * 1000, 2)
+
+    # Extract provenance refs from result if available
+    provenance_refs = []
+    if isinstance(result, dict):
+        for chunk in result.get("chunks", []):
+            prov = chunk.get("provenance", {})
+            if prov.get("provider_name"):
+                provenance_refs.append(prov["provider_name"])
+
+    audit_logger.log_tool_call(
+        tool=name,
+        action="invoke",
+        subject=effective_role,
+        repo=repo,
+        provenance_refs=provenance_refs if provenance_refs else None,
+        correlation_id=correlation_id,
+        duration_ms=duration_ms,
+    )
 
     return [TextContent(type="text", text=json.dumps(result))]
 

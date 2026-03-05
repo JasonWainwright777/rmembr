@@ -19,16 +19,13 @@ from validation import (
     validate_filters, ValidationError,
 )
 from structured_logging import setup_logging, get_request_id, request_id_var, new_request_id, TimedOperation
+from audit_log import AuditLogger
+
+from src.policy import PolicyLoader, PolicyBundle
 
 
 logger = setup_logging("gateway")
-
-# Persona -> max classification mapping (§11.4)
-PERSONA_CLASSIFICATION = {
-    "human": ["public", "internal"],
-    "agent": ["public", "internal"],
-    "external": ["public"],
-}
+audit_logger = AuditLogger(logger)
 
 # Priority class ordering for deterministic sort (§10.1 step 9)
 PRIORITY_ORDER = {"enterprise_must_follow": 0, "repo_must_follow": 1, "task_specific": 2}
@@ -37,10 +34,12 @@ PRIORITY_ORDER = {"enterprise_must_follow": 0, "repo_must_follow": 1, "task_spec
 INDEX_URL = os.environ.get("INDEX_URL", "http://index:8081")
 STANDARDS_URL = os.environ.get("STANDARDS_URL", "http://standards:8082")
 
-# Size budgets (§10.2)
-MAX_BUNDLE_CHARS = int(os.environ.get("GATEWAY_MAX_BUNDLE_CHARS", "40000"))
-DEFAULT_K = int(os.environ.get("GATEWAY_DEFAULT_K", "12"))
-CACHE_TTL = int(os.environ.get("BUNDLE_CACHE_TTL_SECONDS", "300"))
+# Policy loader (initialized at module level, loaded in lifespan)
+policy_loader = PolicyLoader(
+    policy_file=os.environ.get("POLICY_FILE"),
+    hot_reload=os.environ.get("POLICY_HOT_RELOAD", "false").lower() == "true",
+)
+
 PROXY_TIMEOUT = 120.0
 
 # DB pool (set in lifespan)
@@ -82,7 +81,7 @@ async def _store_cached_bundle(key: str, bundle: dict) -> None:
     """Store a bundle in the cache with TTL."""
     if not pool:
         return
-    expires = datetime.now(timezone.utc) + timedelta(seconds=CACHE_TTL)
+    expires = datetime.now(timezone.utc) + timedelta(seconds=policy_loader.policy.budgets.cache_ttl_seconds)
     bundle_json = json.dumps(bundle)
     async with pool.acquire() as conn:
         await conn.execute(
@@ -143,7 +142,8 @@ def _classify_chunk(chunk: dict, standards_refs: list[str]) -> str:
 
 def _filter_by_classification(chunks: list[dict], persona: str) -> list[dict]:
     """Filter chunks by classification level for the given persona (§11.4)."""
-    allowed = PERSONA_CLASSIFICATION.get(persona, ["public"])
+    policy = policy_loader.policy
+    allowed = policy.persona.allowed_classifications.get(persona, ["public"])
     return [c for c in chunks if c.get("classification", "internal") in allowed]
 
 
@@ -203,6 +203,9 @@ def _render_markdown(bundle: dict) -> str:
             lines.append(f"### [{priority}] {chunk.get('heading', 'untitled')}")
             lines.append(f"*Source: {chunk.get('path', 'unknown')}#{chunk.get('anchor', '')}*")
             lines.append(f"*Similarity: {chunk.get('similarity', 0):.3f}*")
+            provenance = chunk.get("provenance", {})
+            if provenance.get("provider_name"):
+                lines.append(f"*Provider: {provenance['provider_name']}*")
             lines.append("")
             lines.append(chunk.get("snippet", ""))
             lines.append("")
@@ -233,6 +236,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to create DB pool: {e}")
         pool = None
+    # Load policy bundle
+    policy_loader.load()
     logger.info("Gateway service ready")
     yield
     if pool:
@@ -304,9 +309,18 @@ async def handle_get_context_bundle(params: dict) -> dict:
     Returns dict with bundle_id, bundle, markdown, cached.
     Raises RuntimeError on upstream service failure (502-equivalent).
     """
+    policy = policy_loader.policy
     repo = validate_repo(params.get("repo", ""))
     task = validate_query(params.get("task", ""))
-    k = validate_k(params.get("k", DEFAULT_K))
+    raw_k = params.get("k", policy.budgets.default_k)
+    # Clamp k to max_sources budget
+    if raw_k > policy.budgets.max_sources:
+        logger.warning(
+            f"Requested k={raw_k} exceeds max_sources={policy.budgets.max_sources}, clamping",
+            extra={"tool": "get_context_bundle"},
+        )
+        raw_k = policy.budgets.max_sources
+    k = validate_k(raw_k)
     namespace = validate_namespace(params.get("namespace", "default"))
     filters = validate_filters(params.get("filters"))
 
@@ -330,8 +344,9 @@ async def handle_get_context_bundle(params: dict) -> dict:
 
     bundle_id = str(uuid.uuid4())
 
+    bundle_timeout = policy.budgets.tool_timeouts.get("get_context_bundle", 30)
     with TimedOperation(logger, "get_context_bundle", f"Building bundle for {repo}"):
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=float(bundle_timeout)) as client:
             # Step 5: Call Index for context pointers
             index_resp = await client.post(
                 f"{INDEX_URL}/tools/resolve_context",
@@ -384,7 +399,7 @@ async def handle_get_context_bundle(params: dict) -> dict:
         sorted_chunks = _deterministic_sort(filtered)
 
         # Step 10: Apply size budget
-        budgeted = _apply_budget(sorted_chunks, MAX_BUNDLE_CHARS)
+        budgeted = _apply_budget(sorted_chunks, policy.budgets.max_bundle_chars)
 
     bundle = {
         "bundle_id": bundle_id,

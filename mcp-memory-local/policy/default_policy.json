@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "persona_classification": {
+    "human": ["public", "internal"],
+    "agent": ["public", "internal"],
+    "external": ["public"]
+  },
+  "tool_authorization": {
+    "default_action": "deny",
+    "roles": {
+      "reader": {
+        "allowed_tools": [
+          "search_repo_memory",
+          "get_context_bundle",
+          "explain_context_bundle",
+          "validate_pack",
+          "list_standards",
+          "get_standard",
+          "get_schema"
+        ]
+      },
+      "writer": {
+        "allowed_tools": [
+          "index_repo",
+          "index_all"
+        ]
+      }
+    },
+    "default_role": "reader"
+  },
+  "budgets": {
+    "max_bundle_chars": 40000,
+    "max_sources": 50,
+    "default_k": 12,
+    "tool_timeouts": {
+      "search_repo_memory": 10,
+      "get_context_bundle": 30,
+      "explain_context_bundle": 5,
+      "validate_pack": 10,
+      "index_repo": 120,
+      "index_all": 300,
+      "list_standards": 5,
+      "get_standard": 5,
+      "get_schema": 5
+    },
+    "cache_ttl_seconds": 300
+  }
+}

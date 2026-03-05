@@ -3,7 +3,8 @@
     "allow": [
       "Bash(ls:*)",
       "Bash(docker compose:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(python:*)"
     ]
   }
 }

@@ -31,6 +31,13 @@ cp .env.example .env
 | `GATEWAY_DEFAULT_K` | `12` | gateway | Default number of chunks to retrieve |
 | `BUNDLE_CACHE_TTL_SECONDS` | `300` | gateway | Cache TTL for search-based bundles (seconds) |
 | `GATEWAY_PORT` | `8080` | gateway | Listening port |
+| **MCP** | | | |
+| `MCP_ENABLED` | `false` | gateway | Enable MCP server (SSE transport at `/mcp/sse`). Must be `true` for MCP clients (VS Code, Claude Code) to connect. |
+| `MCP_STDIO_ENABLED` | `false` | gateway | Enable MCP stdio transport. Used for local pipe-based MCP clients. Not needed for VS Code or Claude Code. |
+| **Policy** | | | |
+| `POLICY_FILE` | *(empty)* | gateway | Path to policy bundle JSON file. If empty, built-in defaults are used (same behavior as pre-Phase 4). |
+| `POLICY_HOT_RELOAD` | `false` | gateway | Enable policy file hot-reload (non-prod only). When `true` and `POLICY_FILE` is set, policy is reloaded on file change without gateway restart. |
+| `GATEWAY_MAX_SOURCES` | `50` | gateway | Maximum number of sources (chunks) per request. Clamps the `k` parameter if it exceeds this value. |
 | **Auth** | | | |
 | `INTERNAL_SERVICE_TOKEN` | `dev-secret-token-change-in-prod` | all services | Shared secret for inter-service auth |
 | **Multi-tenancy** | | | |

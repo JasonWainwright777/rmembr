@@ -41,8 +41,12 @@ services:
       EMBED_MODEL: ${EMBED_MODEL:-nomic-embed-text}
       EMBED_DIMS: ${EMBED_DIMS:-768}
       REPOS_ROOT: /repos
+      ACTIVE_PROVIDERS: ${ACTIVE_PROVIDERS:-filesystem}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev-secret-token-change-in-prod}
       DEFAULT_NAMESPACE: ${DEFAULT_NAMESPACE:-default}
+      RANKING_PATH_BOOST: ${RANKING_PATH_BOOST:-0.1}
+      RANKING_FRESHNESS_BOOST: ${RANKING_FRESHNESS_BOOST:-0.0}
+      RANKING_FRESHNESS_WINDOW_HOURS: ${RANKING_FRESHNESS_WINDOW_HOURS:-168}
     volumes:
       - ./repos:/repos:ro
     depends_on:
@@ -84,6 +88,9 @@ services:
       DEFAULT_NAMESPACE: ${DEFAULT_NAMESPACE:-default}
       MCP_ENABLED: ${MCP_ENABLED:-false}
       MCP_STDIO_ENABLED: ${MCP_STDIO_ENABLED:-false}
+      POLICY_FILE: ${POLICY_FILE:-}
+      POLICY_HOT_RELOAD: ${POLICY_HOT_RELOAD:-false}
+      GATEWAY_MAX_SOURCES: ${GATEWAY_MAX_SOURCES:-50}
     ports:
       - "8080:8080"
     depends_on:

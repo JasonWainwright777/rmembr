@@ -68,6 +68,14 @@ MIGRATIONS = [
     CREATE UNIQUE INDEX IF NOT EXISTS idx_chunks_repo_path_anchor_ref
         ON memory_chunks (repo, path, anchor, ref);
     """,
+    # Migration 2: Provider-agnostic location index columns (Phase 2)
+    """
+    ALTER TABLE memory_chunks ADD COLUMN IF NOT EXISTS provider_name VARCHAR;
+    ALTER TABLE memory_chunks ADD COLUMN IF NOT EXISTS external_id VARCHAR;
+
+    CREATE INDEX IF NOT EXISTS idx_chunks_provider_external
+        ON memory_chunks (provider_name, external_id);
+    """,
 ]
 
 

@@ -1,6 +1,28 @@
-"""Vector search over memory chunks (§5.1)."""
+"""Vector search over memory chunks (§5.1).
 
-from src.embeddings import embed_query  # noqa: index service local import
+Delegates to RetrievalEngine for search -> rank -> normalize pipeline.
+Preserves backward-compatible dict return signatures.
+"""
+
+from src.retrieval import RetrievalEngine, RankingConfig
+
+
+# Module-level engine instance, set by server.py lifespan
+_engine: RetrievalEngine | None = None
+
+
+def set_engine(engine: RetrievalEngine) -> None:
+    """Set the module-level RetrievalEngine instance (called from server.py lifespan)."""
+    global _engine
+    _engine = engine
+
+
+def _get_engine() -> RetrievalEngine:
+    """Get the module-level engine, creating a default if not set."""
+    global _engine
+    if _engine is None:
+        _engine = RetrievalEngine(RankingConfig())
+    return _engine
 
 
 async def search_repo_memory(
@@ -13,51 +35,11 @@ async def search_repo_memory(
     filters: dict | None = None,
 ) -> list[dict]:
     """Semantic search over a repo's indexed memory chunks."""
-    query_embedding = await embed_query(query)
-    embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
-
-    # Build filter conditions
-    conditions = ["repo = $1", "ref = $2", "namespace = $3"]
-    params: list = [repo, ref, namespace]
-    param_idx = 4
-
-    if filters:
-        for key, value in filters.items():
-            conditions.append(f"{key} = ${param_idx}")
-            params.append(value)
-            param_idx += 1
-
-    where_clause = " AND ".join(conditions)
-    params.append(embedding_str)
-    params.append(k)
-
-    query_sql = f"""
-        SELECT
-            id, path, anchor, heading, chunk_text,
-            source_kind, classification, content_hash,
-            1 - (embedding <=> ${param_idx}::vector) AS similarity
-        FROM memory_chunks
-        WHERE {where_clause}
-        ORDER BY embedding <=> ${param_idx}::vector
-        LIMIT ${param_idx + 1}
-    """
-
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(query_sql, *params)
-
-    return [
-        {
-            "id": row["id"],
-            "path": row["path"],
-            "anchor": row["anchor"],
-            "heading": row["heading"],
-            "snippet": row["chunk_text"][:500],
-            "source_kind": row["source_kind"],
-            "classification": row["classification"],
-            "similarity": float(row["similarity"]),
-        }
-        for row in rows
-    ]
+    engine = _get_engine()
+    results = await engine.search(
+        pool, repo, query, k=k, ref=ref, namespace=namespace, filters=filters
+    )
+    return [r.to_dict() for r in results]
 
 
 async def resolve_context(
@@ -73,17 +55,8 @@ async def resolve_context(
 
     Optionally boosts chunks from changed_files paths.
     """
-    results = await search_repo_memory(pool, repo, task, k=k, ref=ref, namespace=namespace)
-
-    if changed_files:
-        # Boost results that match changed file paths
-        for result in results:
-            for cf in changed_files:
-                if cf in result["path"]:
-                    result["similarity"] = min(1.0, result["similarity"] + 0.1)
-                    result["boosted"] = True
-                    break
-
-        results.sort(key=lambda r: r["similarity"], reverse=True)
-
-    return results
+    engine = _get_engine()
+    results = await engine.search(
+        pool, repo, task, k=k, ref=ref, namespace=namespace, changed_files=changed_files
+    )
+    return [r.to_dict() for r in results]
