@@ -11,8 +11,25 @@ You asked whether making the **Context Gateway an MCP server** (usable from VS C
 
 ---
 
-## Planning constraints (no assumptions)
-This plan is organized with explicit decision gates where requirements are not yet locked. No blocked item proceeds without an approved decision.
+## Planning constraints (decisions now locked)
+The previously open architecture/policy decisions are now resolved and treated as implementation requirements.
+
+## Locked decisions (authoritative)
+1. **MCP transport (v1):** Support **both** standard transports. **Streamable HTTP is primary/required** for production shape; **stdio is a dev-only shim**.
+2. **Auth model by environment:**
+   - Local: auth required; static Bearer token via env var; optional bypass flag exists but is disabled by default.
+   - Dev: auth required; Bearer token from dev IdP (or short-lived signed token) and audit logging enabled.
+   - Test/UAT: auth required; OIDC/OAuth2 machine-to-machine tokens with enforced scopes/claims.
+   - Prod: auth required; OIDC/OAuth2 with per-client identity, scopes/claims, key/token rotation, and full audit trail.
+3. **Provider priority after ADO:** GitHub, then Confluence, then SharePoint, then GitLab.
+4. **Tenancy model:** Single-tenant per deployment from day one, with multi-tenant-capable architecture (`tenant_id` first-class in storage and auth claims).
+5. **Policy ownership and location:** Security/GRC owns classification + retention policy content; Platform/AI owns implementation + enforcement. Rules live as policy-as-code in a versioned Git repo and are promoted through CI/CD with auditable review.
+6. **Latency targets (enterprise POC):**
+   - `search_repo_memory`: p50 <= 300 ms, p95 <= 1200 ms.
+   - `get_context_bundle`: p50 <= 600 ms, p95 <= 2000 ms.
+   - Warm-cache and cold-start/cold-cache SLOs must be measured separately.
+7. **Backward compatibility window:** Keep MCP tool schema compatibility for **2 releases or 6 months (whichever is longer)**, with deprecation warnings and migration guidance.
+8. **Primary MCP client target:** VS Code **1.102+**. Best-effort support for current stable N and N-1.
 
 ---
 
@@ -31,19 +48,22 @@ This plan is organized with explicit decision gates where requirements are not y
 
 ### Tasks
 - Define and approve canonical MCP tool surface for gateway (names, JSON schemas, errors, auth expectations).
-- Define supported MCP transports for phase rollout (stdio and/or streamable HTTP).
-- Define identity model for client calls (anonymous local, API key, AAD/OIDC, service principal).
+- Lock transport behavior in contract docs: streamable HTTP as required path, stdio as dev-only shim.
+- Define identity model and environment-specific auth matrix exactly as approved.
 - Define source-of-truth for repository locations and minimum metadata schema.
-- Define non-functional targets: latency, timeout, retry policy, throughput, availability expectations.
+- Define non-functional targets: latency SLOs (warm/cold), timeout, retry policy, throughput, availability expectations.
+- Define compatibility/deprecation policy for MCP schemas (2 releases or 6 months minimum).
 
 ### Acceptance criteria
 - Signed-off `docs/contracts/gateway-mcp-tools.md` with versioned schemas.
 - Signed-off `docs/contracts/location-index-schema.md` with required/optional fields.
-- Signed-off ADR documenting chosen transports and auth strategy.
+- Signed-off ADR documenting transport, auth matrix by environment, tenancy model, and compatibility window.
+- Signed-off SLO document with explicit p50/p95 targets for `search_repo_memory` and `get_context_bundle`.
 
 ### Testing to prove completion
 - Contract validation script runs against tool schemas and example payloads.
 - Negative contract tests exist for invalid payloads and unauthorized requests.
+- Deprecation-warning tests validate compatibility aliases and telemetry emission.
 
 ---
 
@@ -51,6 +71,8 @@ This plan is organized with explicit decision gates where requirements are not y
 
 ### Tasks
 - Implement MCP server wrapper in gateway service, mapping MCP tools to existing gateway handlers.
+- Implement streamable HTTP transport as first-class production transport.
+- Implement stdio transport as a development-only shim (feature flag/profile guarded).
 - Ensure deterministic tool naming, schema publishing, and versioning strategy.
 - Preserve current HTTP APIs for backward compatibility while MCP is rolled out.
 - Add request correlation IDs propagated from MCP call -> gateway -> index/retrieval -> response.
@@ -58,6 +80,7 @@ This plan is organized with explicit decision gates where requirements are not y
 
 ### Acceptance criteria
 - MCP client can discover and invoke gateway tools successfully.
+- Streamable HTTP path is enabled by default for deployable environments; stdio is disabled outside approved dev profiles.
 - Same task returns equivalent results via MCP and existing HTTP paths.
 - Logs show end-to-end correlation ID and timing spans.
 
@@ -66,6 +89,7 @@ This plan is organized with explicit decision gates where requirements are not y
 - Integration tests: MCP client fixture calls `get_context_bundle` and `search_repo_memory`.
 - Regression tests: existing CLI HTTP workflows still pass.
 - Soak test: repeated MCP invocations for 15+ minutes without server crash/leak.
+- Transport-gating tests confirm stdio cannot be enabled in prod profile.
 
 ---
 
@@ -78,19 +102,24 @@ This plan is organized with explicit decision gates where requirements are not y
   - fetch document content/metadata
   - provide stable external IDs and version refs
 - Implement ADO provider as first production provider.
+- Implement GitHub provider next (priority 1 after ADO).
+- Queue Confluence provider (priority 2), SharePoint (priority 3), GitLab (priority 4).
 - Add local filesystem provider (for parity with current behavior).
 - Store canonical location records independent of provider internals.
+- Include `tenant_id` in canonical schema and provider/index APIs from first implementation.
 - Implement re-index workflow using stable IDs/version refs to detect add/update/delete.
 
 ### Acceptance criteria
 - Index can ingest from at least two providers via the same interface (ADO + filesystem).
 - A single repo logical identity can be mapped to provider-specific identifiers.
 - No retrieval logic depends on provider-specific path parsing.
+- Canonical location/index records and access paths are tenant-scoped by design (`tenant_id` required key).
 
 ### Testing to prove completion
 - Provider contract tests run for each provider implementation.
 - Golden tests validate identical normalized location records across providers.
 - Delta indexing tests verify add/update/delete handling by version/ref changes.
+- Tenant isolation tests validate no cross-tenant reads/writes at index boundary.
 
 ---
 
@@ -122,16 +151,19 @@ This plan is organized with explicit decision gates where requirements are not y
 - Add per-tool authorization checks and deny-by-default paths.
 - Add audit logging for tool call subject, repo scope, and returned provenance references.
 - Implement request budget controls (token/content limits, max sources, timeout caps).
+- Integrate policy bundle loading from versioned artifact with startup load and non-prod hot reload.
 
 ### Acceptance criteria
 - Unauthorized tool calls are denied with structured error responses.
 - Sensitive chunks are excluded according to persona/classification rules.
 - Audit log records are queryable and include correlation IDs.
+- Policy changes are traceable to reviewed Git commits and deployment pipeline records.
 
 ### Testing to prove completion
 - Security tests: allow/deny matrix for all MCP tools.
 - Policy tests: personas receive expected redaction/filters.
 - Budget tests: oversized queries are rejected or truncated predictably.
+- Policy reload tests validate startup load and non-prod hot-reload behavior.
 
 ---
 
@@ -142,10 +174,11 @@ This plan is organized with explicit decision gates where requirements are not y
 - Provide reference configs for at least one additional MCP host/client.
 - Validate tool discovery, invocation, and response rendering in supported clients.
 - Add smoke test harness that simulates MCP client startup + tool call sequence.
+- Pin primary support target to VS Code 1.102+ with explicit compatibility statement for N and N-1.
 
 ### Acceptance criteria
 - Fresh environment setup completes from docs without tribal knowledge.
-- VS Code MCP client can list and invoke gateway tools successfully.
+- VS Code 1.102+ MCP client can list and invoke gateway tools successfully.
 - At least one non-VS Code MCP client also passes smoke flow.
 
 ### Testing to prove completion
@@ -160,15 +193,19 @@ This plan is organized with explicit decision gates where requirements are not y
 - Add dashboards/alerts for MCP error rate, latency percentiles, dependency health.
 - Define SLOs and runbook for common failures (provider auth fail, embedding outage, DB saturation).
 - Add migration/version strategy for tool schemas and provider contracts.
+- Split SLO dashboards/reports by warm-cache vs cold-start/cold-cache behavior.
+- Enforce compatibility policy checks in release process (2 releases or 6 months minimum support).
 
 ### Acceptance criteria
 - On-call runbook published with triage steps.
 - Alerts trigger on threshold breaches with actionable messages.
 - Backward compatibility policy documented for MCP tool changes.
+- SLO dashboard exposes p50/p95 for `search_repo_memory` and `get_context_bundle` and tracks against targets.
 
 ### Testing to prove completion
 - Game-day drills for dependency outages.
 - Alert simulation tests for threshold crossing.
+- Release-check tests validate deprecation warnings, aliases, and compatibility-window enforcement.
 
 ---
 
@@ -176,6 +213,8 @@ This plan is organized with explicit decision gates where requirements are not y
 
 ### Epic A — MCP Gateway
 - A1: Implement MCP server transport adapter in gateway.
+- A1a: Streamable HTTP primary transport implementation.
+- A1b: Stdio dev-only shim with environment gating.
 - A2: Publish tool schemas + schema versioning metadata.
 - A3: Map gateway exceptions to MCP-standard error payloads.
 - A4: Add parity tests MCP vs HTTP responses.
@@ -183,8 +222,12 @@ This plan is organized with explicit decision gates where requirements are not y
 ### Epic B — Location Index abstraction
 - B1: Define `LocationProvider` contract and fixtures.
 - B2: Build ADO provider implementation.
-- B3: Build filesystem provider implementation.
-- B4: Introduce canonical location schema storage + migration.
+- B3: Build GitHub provider implementation (next priority).
+- B4: Build filesystem provider implementation.
+- B5: Add Confluence provider backlog item.
+- B6: Add SharePoint provider backlog item.
+- B7: Add GitLab provider backlog item.
+- B8: Introduce canonical location schema storage + migration with required `tenant_id`.
 
 ### Epic C — Retrieval normalization
 - C1: Separate retrieval API boundary and request/response DTOs.
@@ -195,9 +238,11 @@ This plan is organized with explicit decision gates where requirements are not y
 - D1: Tool-level auth middleware.
 - D2: Persona/classification enforcement tests.
 - D3: Audit log pipeline with correlation IDs.
+- D4: Policy-as-code bundle loader + CI/CD promotion wiring.
+- D5: Environment-specific auth matrix enforcement tests (Local/Dev/Test/Prod).
 
 ### Epic E — Client interoperability
-- E1: VS Code MCP setup doc + sample config.
+- E1: VS Code 1.102+ MCP setup doc + sample `.vscode/mcp.json` config.
 - E2: Secondary MCP client validation.
 - E3: CI smoke test harness for MCP startup and tool invocation.
 
@@ -209,19 +254,7 @@ All items below must be true simultaneously:
 - Index is provider-agnostic with at least ADO + filesystem providers passing contract tests.
 - Retrieval consumes index locations and returns normalized provenance-rich chunks.
 - Security/policy controls are enforced and auditable.
-- VS Code (and one additional MCP client) can successfully discover and call tools.
+- VS Code 1.102+ (and one additional MCP client) can successfully discover and call tools.
 - Documentation and runbooks enable repeatable setup/operations.
-
----
-
-## Open questions requiring your decisions
-To avoid assumptions, these answers are required before implementation starts:
-1. **Primary MCP transport for v1:** stdio, streamable HTTP, or both?
-2. **Auth model for MCP clients:** local dev unauthenticated, API key, AAD/OIDC, or mixed by environment?
-3. **Provider priority after ADO:** GitHub, GitLab, SharePoint, Confluence, or other?
-4. **Tenancy scope:** single-tenant per deployment or multi-tenant with strict isolation?
-5. **Policy source:** where do persona/classification rules live and who owns updates?
-6. **Latency SLO target:** required p50/p95 for tool calls (e.g., search/bundle)?
-7. **Change-management policy:** expected backward compatibility window for tool schema versions?
-8. **Minimum supported MCP clients:** exact versions of VS Code extension(s) and additional host(s)?
+- Tenancy is single-tenant per deployment while all core data/auth flows remain multi-tenant-capable via `tenant_id`.
 

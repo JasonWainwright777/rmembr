@@ -39,6 +39,18 @@ python scripts/mcp-cli.py search sample-repo-a "terraform module versioning"
 python scripts/mcp-cli.py get-bundle sample-repo-a "add an auth feature" --format markdown
 ```
 
+## Self-Test rmembr’s Memory Pack
+
+This repo includes an end-to-end check that the new `/.ai/memory/**` docs can be indexed and retrieved via the local stack.
+
+```powershell
+cd mcp-memory-local
+docker compose up -d
+docker compose exec ollama ollama pull nomic-embed-text
+
+.\scripts\examples\rmembr-selftest.ps1
+```
+
 ## Core Docs
 
 - `docs/USAGE.md`
