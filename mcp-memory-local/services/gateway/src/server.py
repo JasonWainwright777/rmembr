@@ -256,9 +256,8 @@ async def request_id_middleware(request: Request, call_next):
     return response
 
 
-@app.get("/health")
-async def health():
-    """Health check with dependency status."""
+async def handle_health() -> dict:
+    """Health check handler — returns dependency status."""
     index_ok = False
     standards_ok = False
     pg_ok = False
@@ -292,23 +291,29 @@ async def health():
     }
 
 
-@app.post("/tools/get_context_bundle")
-async def tool_get_context_bundle(request: Request):
-    """MCP tool: get_context_bundle -> assembled context bundle (§10.1)."""
-    body = await request.json()
-    try:
-        repo = validate_repo(body.get("repo", ""))
-        task = validate_query(body.get("task", ""))
-        k = validate_k(body.get("k", DEFAULT_K))
-        namespace = validate_namespace(body.get("namespace", "default"))
-        filters = validate_filters(body.get("filters"))
-    except ValidationError as e:
-        return JSONResponse({"error": str(e)}, status_code=400)
+@app.get("/health")
+async def health():
+    """Health check with dependency status."""
+    return await handle_health()
 
-    persona = body.get("persona", "human")
-    ref = body.get("ref", "local")
-    standards_version = body.get("standards_version", "local")
-    changed_files = body.get("changed_files")
+
+async def handle_get_context_bundle(params: dict) -> dict:
+    """Handler: get_context_bundle -> assembled context bundle (§10.1).
+
+    Raises ValidationError on bad input.
+    Returns dict with bundle_id, bundle, markdown, cached.
+    Raises RuntimeError on upstream service failure (502-equivalent).
+    """
+    repo = validate_repo(params.get("repo", ""))
+    task = validate_query(params.get("task", ""))
+    k = validate_k(params.get("k", DEFAULT_K))
+    namespace = validate_namespace(params.get("namespace", "default"))
+    filters = validate_filters(params.get("filters"))
+
+    persona = params.get("persona", "human")
+    ref = params.get("ref", "local")
+    standards_version = params.get("standards_version", "local")
+    changed_files = params.get("changed_files")
 
     # Step 4: Check bundle cache
     cache_k = _cache_key(namespace, repo, task, ref, standards_version)
@@ -342,10 +347,7 @@ async def tool_get_context_bundle(request: Request):
             )
 
             if index_resp.status_code != 200:
-                return JSONResponse(
-                    {"error": f"Index service error: {index_resp.text}"},
-                    status_code=502,
-                )
+                raise RuntimeError(f"Index service error: {index_resp.text}")
 
             pointers = index_resp.json().get("pointers", [])
 
@@ -415,17 +417,31 @@ async def tool_get_context_bundle(request: Request):
     }
 
 
-@app.post("/tools/explain_context_bundle")
-async def tool_explain_context_bundle(request: Request):
-    """MCP tool: explain_context_bundle -> explanation of a previous bundle."""
+@app.post("/tools/get_context_bundle")
+async def tool_get_context_bundle(request: Request):
+    """MCP tool: get_context_bundle -> assembled context bundle (§10.1)."""
     body = await request.json()
-    bundle_id = body.get("bundle_id", "")
+    try:
+        return await handle_get_context_bundle(body)
+    except ValidationError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    except RuntimeError as e:
+        return JSONResponse({"error": str(e)}, status_code=502)
+
+
+async def handle_explain_context_bundle(params: dict) -> dict:
+    """Handler: explain_context_bundle -> explanation of a previous bundle.
+
+    Raises ValidationError if bundle_id missing.
+    Raises LookupError if bundle not found.
+    """
+    bundle_id = params.get("bundle_id", "")
     if not bundle_id:
-        return JSONResponse({"error": "bundle_id is required"}, status_code=400)
+        raise ValidationError("bundle_id", "bundle_id is required")
 
     bundle = await _get_bundle_record(bundle_id)
     if not bundle:
-        return JSONResponse({"error": f"Bundle '{bundle_id}' not found"}, status_code=404)
+        raise LookupError(f"Bundle '{bundle_id}' not found")
 
     explanation = {
         "bundle_id": bundle_id,
@@ -456,16 +472,25 @@ async def tool_explain_context_bundle(request: Request):
     return explanation
 
 
-@app.post("/tools/validate_pack")
-async def tool_validate_pack(request: Request):
-    """MCP tool: validate_pack -> validation report for a repo's memory pack."""
+@app.post("/tools/explain_context_bundle")
+async def tool_explain_context_bundle(request: Request):
+    """MCP tool: explain_context_bundle -> explanation of a previous bundle."""
     body = await request.json()
     try:
-        repo = validate_repo(body.get("repo", ""))
+        return await handle_explain_context_bundle(body)
     except ValidationError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
+    except LookupError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
 
-    ref = body.get("ref", "local")
+
+async def handle_validate_pack(params: dict) -> dict:
+    """Handler: validate_pack -> validation report for a repo's memory pack.
+
+    Raises ValidationError on bad input.
+    """
+    repo = validate_repo(params.get("repo", ""))
+    ref = params.get("ref", "local")
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
@@ -486,10 +511,32 @@ async def tool_validate_pack(request: Request):
     }
 
 
+@app.post("/tools/validate_pack")
+async def tool_validate_pack(request: Request):
+    """MCP tool: validate_pack -> validation report for a repo's memory pack."""
+    body = await request.json()
+    try:
+        return await handle_validate_pack(body)
+    except ValidationError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
 # --- Proxy endpoints for CLI access (Index + Standards pass-through) ---
 
+async def handle_proxy(service_url: str, path: str, body: dict) -> dict:
+    """Forward a request to an internal service, return parsed response.
+
+    Raises RuntimeError on non-2xx responses from downstream.
+    """
+    async with httpx.AsyncClient(timeout=PROXY_TIMEOUT) as client:
+        resp = await client.post(f"{service_url}{path}", headers=_internal_headers(), json=body)
+    if resp.status_code >= 400:
+        raise RuntimeError(f"Downstream service error (HTTP {resp.status_code})")
+    return resp.json()
+
+
 async def _proxy_to(service_url: str, path: str, body: dict) -> JSONResponse:
-    """Forward a request to an internal service with auth headers."""
+    """Forward a request to an internal service with auth headers (HTTP layer)."""
     async with httpx.AsyncClient(timeout=PROXY_TIMEOUT) as client:
         resp = await client.post(f"{service_url}{path}", headers=_internal_headers(), json=body)
     return JSONResponse(resp.json(), status_code=resp.status_code)
@@ -507,6 +554,22 @@ async def proxy_standards(tool: str, request: Request):
     """Proxy to Standards service tools (for CLI access)."""
     body = await request.json()
     return await _proxy_to(STANDARDS_URL, f"/tools/{tool}", body)
+
+
+def _mount_mcp():
+    """Mount MCP ASGI sub-app if MCP_ENABLED=true."""
+    try:
+        from src.mcp_server import get_mcp_asgi_app
+        mcp_app = get_mcp_asgi_app()
+        if mcp_app:
+            app.mount("/", mcp_app)
+            logger.info("MCP server mounted at /mcp")
+    except ImportError:
+        logger.warning("MCP SDK not available, MCP server disabled")
+
+
+if os.environ.get("MCP_ENABLED", "false").lower() == "true":
+    _mount_mcp()
 
 
 if __name__ == "__main__":

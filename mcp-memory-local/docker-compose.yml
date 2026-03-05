@@ -82,6 +82,8 @@ services:
       GATEWAY_DEFAULT_K: ${GATEWAY_DEFAULT_K:-12}
       BUNDLE_CACHE_TTL_SECONDS: ${BUNDLE_CACHE_TTL_SECONDS:-300}
       DEFAULT_NAMESPACE: ${DEFAULT_NAMESPACE:-default}
+      MCP_ENABLED: ${MCP_ENABLED:-false}
+      MCP_STDIO_ENABLED: ${MCP_STDIO_ENABLED:-false}
     ports:
       - "8080:8080"
     depends_on:
