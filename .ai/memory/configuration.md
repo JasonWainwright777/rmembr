@@ -62,6 +62,13 @@ title: Configuration
 
 - `ACTIVE_PROVIDERS`: comma-separated list of content providers (default: filesystem only)
 
+## GitHub Provider (Index)
+
+- `GITHUB_TOKEN`: fine-grained PAT with Contents: Read-only and Metadata: Read-only (required for github provider; absent = provider not registered)
+- `GITHUB_REPOS`: comma-separated `owner/repo` list to index (e.g., `octocat/my-repo,org/other-repo`)
+- `GITHUB_API_URL`: API base URL (default: `https://api.github.com`; set for GitHub Enterprise)
+- `GITHUB_DEFAULT_BRANCH`: branch to read .ai/memory from (default: `main`)
+
 ## Auth
 
 - `INTERNAL_SERVICE_TOKEN` is required for Gateway <-> Index/Standards calls.

@@ -14,6 +14,7 @@ from src.search import search_repo_memory as do_search, resolve_context as do_re
 from src.retrieval import RetrievalEngine, RankingConfig
 from src.providers import ProviderRegistry
 from src.providers.filesystem import FilesystemProvider
+from src.providers.github import GitHubProvider
 
 # Use shared library imports via path
 import sys
@@ -45,6 +46,8 @@ async def lifespan(app: FastAPI):
     # Initialize provider registry
     registry = ProviderRegistry()
     registry.register(FilesystemProvider())
+    if os.environ.get("GITHUB_TOKEN"):
+        registry.register(GitHubProvider(pool=pool))
     set_registry(registry)
     active = registry.active_providers()
     logger.info(f"Active providers: {[p.name for p in active]}")

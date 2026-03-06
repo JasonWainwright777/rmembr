@@ -53,7 +53,7 @@ def cmd_health(_args):
 
 
 def cmd_index_repo(args):
-    _print_json(_post("/proxy/index/index_repo", {"repo": args.repo, "ref": args.ref}))
+    _print_json(_post("/proxy/index/index_repo", {"repo": args.repo, "ref": args.ref, "provider": args.provider}))
 
 
 def cmd_index_all(args):
@@ -126,6 +126,7 @@ def main():
     p = sub.add_parser("index-repo", help="Index a single repo's memory pack")
     p.add_argument("repo", help="Repo name (e.g., sample-repo-a)")
     p.add_argument("--ref", default="local")
+    p.add_argument("--provider", default="filesystem", help="Provider name (filesystem or github)")
 
     p = sub.add_parser("index-all", help="Index all repos under REPOS_ROOT")
     p.add_argument("--ref", default="local")

@@ -76,6 +76,21 @@ MIGRATIONS = [
     CREATE INDEX IF NOT EXISTS idx_chunks_provider_external
         ON memory_chunks (provider_name, external_id);
     """,
+    # Migration 3: GitHub provider cache table (Phase 4)
+    """
+    CREATE TABLE IF NOT EXISTS github_cache (
+        id          BIGSERIAL PRIMARY KEY,
+        cache_type  TEXT NOT NULL,
+        cache_key   TEXT NOT NULL,
+        etag        TEXT,
+        content     TEXT,
+        tree_sha    TEXT,
+        blob_shas   JSONB,
+        created_at  TIMESTAMPTZ DEFAULT now(),
+        updated_at  TIMESTAMPTZ DEFAULT now(),
+        CONSTRAINT idx_github_cache_key UNIQUE (cache_type, cache_key)
+    );
+    """,
 ]
 
 

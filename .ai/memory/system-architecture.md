@@ -73,9 +73,13 @@ Score components: `semantic + path_boost + freshness_boost = final score`
 Index has a pluggable provider system for content sources:
 
 - `services/index/src/providers/registry.py`: ProviderRegistry
-- `services/index/src/providers/filesystem.py`: FilesystemProvider (current only implementation)
+- `services/index/src/providers/filesystem.py`: FilesystemProvider (default, reads local filesystem)
+- `services/index/src/providers/github.py`: GitHubProvider (reads from GitHub repos via REST API)
 - Migration 2 adds `provider_name` and `external_id` columns for multi-provider support
-- Config: `ACTIVE_PROVIDERS` env var
+- Migration 3 adds `github_cache` table for ETag-based tree caching and blob content caching
+- Config: `ACTIVE_PROVIDERS` env var (comma-separated: `filesystem`, `github`)
+- GitHubProvider activates only when `GITHUB_TOKEN` is present in environment
+- Two-layer cache (tree ETag + blob SHA) keeps steady-state API cost at 0-2 calls per index run
 
 ## MCP Protocol Server
 

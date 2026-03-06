@@ -3,6 +3,7 @@
 from .base import LocationProvider
 from .registry import ProviderRegistry
 from .types import RepoDescriptor, DocumentDescriptor, DocumentContent
+from .github import GitHubProvider
 
 __all__ = [
     "LocationProvider",
@@ -10,4 +11,5 @@ __all__ = [
     "RepoDescriptor",
     "DocumentDescriptor",
     "DocumentContent",
+    "GitHubProvider",
 ]
