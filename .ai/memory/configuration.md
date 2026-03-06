@@ -55,7 +55,7 @@ title: Configuration
 
 ## MCP Protocol
 
-- `MCP_ENABLED` (default `false`): enable MCP SSE server on `/mcp/sse`
+- `MCP_ENABLED` (stack default `true` in compose/env example; code fallback `false`): enable MCP SSE server on `/mcp/sse`
 - `MCP_STDIO_ENABLED` (default `false`): enable MCP stdio transport
 
 ## Providers (Index)
@@ -73,4 +73,3 @@ title: Configuration
 
 - `INTERNAL_SERVICE_TOKEN` is required for Gateway <-> Index/Standards calls.
   - Index and Standards reject missing/invalid tokens for all non-`/health` endpoints.
-
