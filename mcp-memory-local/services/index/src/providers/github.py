@@ -207,9 +207,7 @@ class GitHubProvider:
             if entry.get("type") != "blob":
                 continue
             path = entry["path"]
-            # Filter: memory/**/*.md and memory/**/*.yaml, excluding manifest.yaml
-            if not path.startswith("memory/"):
-                continue
+            # Filter: **/*.md and **/*.yaml under .ai/, excluding manifest.yaml
             if not (path.endswith(".md") or path.endswith(".yaml")):
                 continue
             if path == "memory/manifest.yaml":

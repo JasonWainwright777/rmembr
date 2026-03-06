@@ -60,7 +60,7 @@ def get_mcp_asgi_app():
     # --- Streamable HTTP transport (new) ---
     _session_manager = StreamableHTTPSessionManager(
         app=server,
-        json_response=False,
+        json_response=True,
         stateless=False,
     )
 

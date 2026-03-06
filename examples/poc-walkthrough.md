@@ -199,7 +199,9 @@ Content-Type: application/json
       "snippet": "## Chunking Rules (Current Implementation)\n\nImplemented in `mcp-memory-local/services/shared/src/chunking/chunker.py`.\n\n- YAML front matter (single `--- ... ---` block at file start) is parsed and removed from the chunk text\n- Chunk boundaries start at each `##` / `###` heading\n- Long sections are split on blank lines to keep chunks under ~2000 chars\n- Very short content (<100 chars) without a heading is dropped\n- Anchors are generated as `<slug>-c<index>` (e.g. `terraform-module-versioning-c3`)",
       "source_kind": "repo_memory",
       "classification": "internal",
-      "similarity": 0.6543
+      "similarity": 0.6543,
+      "score_components": {"semantic": 0.6543, "path_boost": 0.0, "freshness_boost": 0.0},
+      "provenance": {"provider_name": null, "external_id": null, "content_hash": "a1b2c3...", "indexed_at": "2026-03-06T15:20:09.504941+00:00"}
     },
     {
       "id": 64,
@@ -209,7 +211,9 @@ Content-Type: application/json
       "snippet": "## `memory_chunks`\n\nStores chunk content and embeddings.\n\nNotable columns:\n\n- identifiers: `repo`, `ref`, `path`, `anchor` (unique with `(repo, path, anchor, ref)`)\n- content: `heading`, `chunk_text`, `content_hash`\n- retrieval: `embedding vector(768)` with HNSW index (cosine ops)\n- access: `classification`\n- provenance (migration 2): `provider_name`, `external_id`\n\nThe Index service returns `similarity = 1 - (embedding <=> query_embedding)`.",
       "source_kind": "repo_memory",
       "classification": "internal",
-      "similarity": 0.6121
+      "similarity": 0.6121,
+      "score_components": {"semantic": 0.6121, "path_boost": 0.0, "freshness_boost": 0.0},
+      "provenance": {"provider_name": null, "external_id": null, "content_hash": "d4e5f6...", "indexed_at": "2026-03-06T15:20:09.462148+00:00"}
     },
     {
       "id": 71,
@@ -219,7 +223,9 @@ Content-Type: application/json
       "snippet": "## Metadata Is Parsed But Not Fully Used\n\nMarkdown YAML front matter is parsed in the chunker, but the current Index ingest path does not persist front matter into `memory_chunks.metadata_json` (it inserts `{}` today). That means fields like `priority: must-follow` are not currently enforced by the running system; treat them as documentation intent.",
       "source_kind": "repo_memory",
       "classification": "internal",
-      "similarity": 0.6082
+      "similarity": 0.6082,
+      "score_components": {"semantic": 0.6082, "path_boost": 0.0, "freshness_boost": 0.0},
+      "provenance": {"provider_name": null, "external_id": null, "content_hash": "g7h8i9...", "indexed_at": "2026-03-05T15:47:47.211707+00:00"}
     },
     {
       "id": 126,
@@ -229,7 +235,9 @@ Content-Type: application/json
       "snippet": "## Indexing\n\n1. User (via CLI) calls Gateway `/proxy/index/index_repo`\n2. Gateway forwards to Index `/tools/index_repo` (with `X-Internal-Token`)\n3. Index reads `repos/<repo>/.ai/memory/**` and chunks content (shared chunker)\n4. Index calls Ollama to embed changed chunks\n5. Index upserts rows to Postgres",
       "source_kind": "repo_memory",
       "classification": "internal",
-      "similarity": 0.6064
+      "similarity": 0.6064,
+      "score_components": {"semantic": 0.6064, "path_boost": 0.0, "freshness_boost": 0.0},
+      "provenance": {"provider_name": null, "external_id": null, "content_hash": "j0k1l2...", "indexed_at": "2026-03-06T15:20:09.518639+00:00"}
     },
     {
       "id": 127,
@@ -239,7 +247,9 @@ Content-Type: application/json
       "snippet": "## Bundle Assembly\n\n1. User calls Gateway `/tools/get_context_bundle` with `{repo, task, persona, ...}`\n2. Gateway calls Index `/tools/resolve_context` to get top-k chunk pointers\n3. Gateway calls Standards `/tools/list_standards` + `/tools/get_standard` to fetch up to 5 standards\n4. Gateway filters chunks by persona classification and applies size budget\n5. Gateway returns JSON bundle and a markdown rendering",
       "source_kind": "repo_memory",
       "classification": "internal",
-      "similarity": 0.5926
+      "similarity": 0.5926,
+      "score_components": {"semantic": 0.5926, "path_boost": 0.0, "freshness_boost": 0.0},
+      "provenance": {"provider_name": null, "external_id": null, "content_hash": "m3n4o5...", "indexed_at": "2026-03-06T15:20:09.501179+00:00"}
     }
   ],
   "count": 5
@@ -251,6 +261,8 @@ Content-Type: application/json
 - The top result (0.65 similarity) is the exact section describing chunking rules — the query "how does the chunking pipeline work" matched the heading "Chunking Rules (Current Implementation)" directly.
 - Lower-ranked results are still relevant: the data model for chunks, metadata parsing notes, and the indexing flow.
 - Each result includes `path`, `anchor`, and `heading` — enough for an LLM to cite its source or navigate to the file.
+- **`score_components`** breaks down how the final `similarity` score was computed: `semantic` (cosine), `path_boost` (from `changed_files` match), and `freshness_boost` (from recency). Here all boosts are 0 because no `changed_files` were passed.
+- **`provenance`** tracks where each chunk came from: `provider_name`, `external_id`, `content_hash`, and `indexed_at` timestamp.
 
 ---
 
@@ -331,6 +343,8 @@ Content-Type: application/json
         "source_kind": "repo_memory",
         "classification": "internal",
         "similarity": 0.5463,
+        "score_components": {"semantic": 0.5463, "path_boost": 0.0, "freshness_boost": 0.0},
+        "provenance": {"provider_name": null, "external_id": null, "content_hash": "ab12cd...", "indexed_at": "2026-03-06T15:20:09.504941+00:00"},
         "_priority_class": "task_specific"
       },
       {
@@ -342,6 +356,8 @@ Content-Type: application/json
         "source_kind": "repo_memory",
         "classification": "internal",
         "similarity": 0.5286,
+        "score_components": {"semantic": 0.5286, "path_boost": 0.0, "freshness_boost": 0.0},
+        "provenance": {"provider_name": null, "external_id": null, "content_hash": "ef34gh...", "indexed_at": "2026-03-06T15:20:09.504941+00:00"},
         "_priority_class": "task_specific"
       },
       {
@@ -353,6 +369,8 @@ Content-Type: application/json
         "source_kind": "repo_memory",
         "classification": "internal",
         "similarity": 0.5054,
+        "score_components": {"semantic": 0.5054, "path_boost": 0.0, "freshness_boost": 0.0},
+        "provenance": {"provider_name": null, "external_id": null, "content_hash": "ij56kl...", "indexed_at": "2026-03-06T15:20:09.504941+00:00"},
         "_priority_class": "task_specific"
       },
       {
@@ -364,6 +382,8 @@ Content-Type: application/json
         "source_kind": "repo_memory",
         "classification": "internal",
         "similarity": 0.4901,
+        "score_components": {"semantic": 0.4901, "path_boost": 0.0, "freshness_boost": 0.0},
+        "provenance": {"provider_name": null, "external_id": null, "content_hash": "mn78op...", "indexed_at": "2026-03-06T15:20:09.504941+00:00"},
         "_priority_class": "task_specific"
       },
       {
@@ -375,6 +395,8 @@ Content-Type: application/json
         "source_kind": "repo_memory",
         "classification": "internal",
         "similarity": 0.4672,
+        "score_components": {"semantic": 0.4672, "path_boost": 0.0, "freshness_boost": 0.0},
+        "provenance": {"provider_name": null, "external_id": null, "content_hash": "qr90st...", "indexed_at": "2026-03-06T15:20:09.504941+00:00"},
         "_priority_class": "task_specific"
       },
       {
@@ -386,6 +408,8 @@ Content-Type: application/json
         "source_kind": "repo_memory",
         "classification": "internal",
         "similarity": 0.4557,
+        "score_components": {"semantic": 0.4557, "path_boost": 0.0, "freshness_boost": 0.0},
+        "provenance": {"provider_name": null, "external_id": null, "content_hash": "uv12wx...", "indexed_at": "2026-03-06T15:20:09.504941+00:00"},
         "_priority_class": "task_specific"
       }
     ],
@@ -402,7 +426,8 @@ Content-Type: application/json
 
 - **`standards_content`** — The gateway automatically fetched all 3 enterprise standards referenced by sample-repo-a's manifest. These are included as full markdown so the LLM sees the complete standard.
 - **`chunks`** — 6 repo-specific chunks sorted by similarity. The "Architecture" chunk (0.49) tells the LLM where `src/Api/` is, which is directly relevant to the OAuth2 task.
-- **`changed_files`** — We passed `src/Api/AuthController.cs` and `src/Api/Startup.cs`. Chunks whose `path` matches get a +0.1 similarity boost. In this sample repo none of the memory pack paths match those source files, so the boost didn't change ranking — but for repos with path-specific memory (e.g., a chunk about `src/Api/`), it would surface those chunks higher.
+- **`score_components`** and **`provenance`** — Each chunk now includes a score breakdown and origin tracking. All `path_boost` values are 0.0 here because none of the memory pack paths matched the `changed_files`.
+- **`changed_files`** — We passed `src/Api/AuthController.cs` and `src/Api/Startup.cs`. Chunks whose `path` matches get a +0.1 `path_boost`. In this sample repo none of the memory pack paths match those source files, so the boost didn't change ranking — but for repos with path-specific memory (e.g., a chunk about `src/Api/`), it would surface those chunks higher.
 - **`cached: false`** — This was a fresh computation. Subsequent identical requests within the TTL (default 5 min) return `cached: true`.
 - **`_priority_class`** — All chunks are `task_specific`. Enterprise standards would appear as `enterprise_must_follow` and are always included first in the character budget.
 
@@ -677,7 +702,9 @@ Content-Type: application/json
       "snippet": "## Branching Strategy\n\n- `main` — production-ready code\n- `develop` — integration branch\n- Feature branches: `feature/<ticket-id>-<description>`",
       "source_kind": "repo_memory",
       "classification": "internal",
-      "similarity": 0.5462
+      "similarity": 0.5462,
+      "score_components": {"semantic": 0.5462, "path_boost": 0.0, "freshness_boost": 0.0},
+      "provenance": {"provider_name": null, "external_id": null, "content_hash": "ij56kl...", "indexed_at": "2026-03-06T15:20:09.504941+00:00"}
     },
     {
       "id": 29,
@@ -687,7 +714,9 @@ Content-Type: application/json
       "snippet": "## Terraform Modules\n\nAll infrastructure is in `infra/`. Modules are pinned to exact versions per enterprise standard. See `enterprise/terraform/module-versioning` for version pinning rules.",
       "source_kind": "repo_memory",
       "classification": "internal",
-      "similarity": 0.5321
+      "similarity": 0.5321,
+      "score_components": {"semantic": 0.5321, "path_boost": 0.0, "freshness_boost": 0.0},
+      "provenance": {"provider_name": null, "external_id": null, "content_hash": "ab12cd...", "indexed_at": "2026-03-06T15:20:09.504941+00:00"}
     },
     {
       "id": 30,
@@ -697,7 +726,9 @@ Content-Type: application/json
       "snippet": "## Pipeline Configuration\n\nCI/CD uses the enterprise job templates v3. See `enterprise/ado/pipelines/job-templates-v3` for approved templates.",
       "source_kind": "repo_memory",
       "classification": "internal",
-      "similarity": 0.4803
+      "similarity": 0.4803,
+      "score_components": {"semantic": 0.4803, "path_boost": 0.0, "freshness_boost": 0.0},
+      "provenance": {"provider_name": null, "external_id": null, "content_hash": "qr90st...", "indexed_at": "2026-03-06T15:20:09.504941+00:00"}
     }
   ],
   "count": 3

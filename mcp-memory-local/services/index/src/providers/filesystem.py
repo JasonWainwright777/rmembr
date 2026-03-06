@@ -28,10 +28,10 @@ class FilesystemProvider:
         for repo_dir in sorted(self._repos_root.iterdir()):
             if not repo_dir.is_dir():
                 continue
-            memory_path = repo_dir / ".ai" / "memory"
-            if not memory_path.exists():
+            ai_path = repo_dir / ".ai"
+            if not ai_path.exists():
                 continue
-            manifest_path = memory_path / "manifest.yaml"
+            manifest_path = ai_path / "memory" / "manifest.yaml"
             manifest = parse_manifest(manifest_path)
             yield RepoDescriptor(
                 namespace=manifest.scope_namespace,
@@ -51,10 +51,10 @@ class FilesystemProvider:
         self, repo: RepoDescriptor
     ) -> AsyncIterator[DocumentDescriptor]:
         repo_path = Path(repo.external_id)
-        memory_path = repo_path / ".ai" / "memory"
-        if not memory_path.exists():
+        ai_path = repo_path / ".ai"
+        if not ai_path.exists():
             return
-        md_files = list(memory_path.rglob("*.md")) + list(memory_path.rglob("*.yaml"))
+        md_files = list(ai_path.rglob("*.md")) + list(ai_path.rglob("*.yaml"))
         md_files = [f for f in md_files if f.name != "manifest.yaml"]
         for md_file in sorted(md_files):
             relative_path = str(md_file.relative_to(repo_path))
