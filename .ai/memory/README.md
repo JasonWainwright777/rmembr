@@ -9,6 +9,7 @@ This directory is intended to be indexed by the “targeted memory” system imp
 ## Start Here
 
 - [instructions.md](instructions.md): what this repo is, what’s “source of truth”, and how to run it
+- [must-follow.md](must-follow.md): mandatory checklist for contract/policy/retrieval changes
 - [repo-layout.md](repo-layout.md): where code and docs live
 
 ## System Reference
