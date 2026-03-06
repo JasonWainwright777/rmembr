@@ -298,7 +298,15 @@ async def lifespan(app: FastAPI):
         _health_probe_task = asyncio.create_task(_health_probe_loop())
         logger.info("Dependency health probe started")
     logger.info("Gateway service ready")
-    yield
+    # Start MCP Streamable HTTP session manager if enabled.
+    # Must live inside the main lifespan because mounted sub-app lifespans
+    # are not propagated by FastAPI.
+    from src.mcp_server import _session_manager as mcp_sm
+    if mcp_sm:
+        async with mcp_sm.run():
+            yield
+    else:
+        yield
     # Cancel health probe task on shutdown
     if _health_probe_task is not None:
         _health_probe_task.cancel()
