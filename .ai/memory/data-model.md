@@ -28,6 +28,7 @@ Notable columns:
 - content: `heading`, `chunk_text`, `content_hash`
 - retrieval: `embedding vector(768)` with HNSW index (cosine ops)
 - access: `classification`
+- provenance (migration 2): `provider_name`, `external_id`
 
 The Index service returns `similarity = 1 - (embedding <=> query_embedding)`.
 

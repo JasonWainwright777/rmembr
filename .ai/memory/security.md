@@ -23,7 +23,7 @@ Gateway filters chunks included in bundles by persona:
 - `agent`: allows `public`, `internal`
 - `external`: allows `public` only
 
-This mapping is in `mcp-memory-local/services/gateway/src/server.py` (`PERSONA_CLASSIFICATION`).
+This mapping is defined in the policy system (`services/gateway/src/policy/types.py` via `PolicyLoader`), with defaults in `policy/default_policy.json`.
 
 ## Input Validation (Path Traversal Defense)
 

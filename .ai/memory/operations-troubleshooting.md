@@ -60,3 +60,21 @@ Fix:
 
 At the moment, front matter is parsed in the chunker but not persisted into `metadata_json` during ingestion. Do not expect `priority:` or other front matter fields to drive bundle assembly unless you verify/extend the implementation.
 
+## MCP clients can’t connect
+
+Cause: MCP server is disabled by default.
+
+Fix:
+
+- Set `MCP_ENABLED=true` in `mcp-memory-local/.env`
+- Restart: `docker compose up -d --force-recreate gateway`
+- SSE endpoint: `http://localhost:8080/mcp/sse`
+- See `docs/integration/vscode-mcp.md` or `docs/integration/claude-code-mcp.md` for client config
+
+## Monitoring / Prometheus metrics not appearing
+
+- `/metrics` requires `prometheus_client` Python package installed in the gateway container (included by default)
+- Optional full stack (Prometheus + Grafana): `docker compose --profile monitoring up -d`
+- Dashboard JSON: `monitoring/dashboards/gateway-overview.json`
+- Alert rules: `monitoring/alerts/gateway-alerts.yaml`
+

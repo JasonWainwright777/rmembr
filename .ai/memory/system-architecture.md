@@ -58,6 +58,42 @@ Schema is created by Index on startup: `mcp-memory-local/services/index/src/migr
 
 Key file: `mcp-memory-local/services/index/src/embeddings.py`.
 
+## Retrieval & Ranking Pipeline
+
+The Index service includes a pluggable ranking pipeline beyond raw cosine similarity:
+
+- `services/index/src/retrieval/engine.py`: orchestrates search → rank → normalize
+- `services/index/src/retrieval/ranker.py`: applies configurable ranking stages
+- `services/index/src/retrieval/types.py`: RankingConfig, ScoreComponents, ProvenanceInfo
+
+Score components: `semantic + path_boost + freshness_boost = final score`
+
+## Provider Framework
+
+Index has a pluggable provider system for content sources:
+
+- `services/index/src/providers/registry.py`: ProviderRegistry
+- `services/index/src/providers/filesystem.py`: FilesystemProvider (current only implementation)
+- Migration 2 adds `provider_name` and `external_id` columns for multi-provider support
+- Config: `ACTIVE_PROVIDERS` env var
+
+## MCP Protocol Server
+
+Gateway includes an optional MCP (Model Context Protocol) server:
+
+- `services/gateway/src/mcp_tools.py`: registers 9 tools
+- `services/gateway/src/mcp_server.py`: SSE transport (`/mcp/sse`, `/mcp/messages/`)
+- `services/gateway/src/mcp_stdio_shim.py`: stdio transport option
+- Gated by `MCP_ENABLED` env var (default: false); stdio via `MCP_STDIO_ENABLED`
+
+## Observability
+
+- `services/shared/src/metrics.py`: Prometheus metrics (`/metrics` endpoint when prometheus_client installed)
+  - Histograms: `mcp_tool_call_duration_seconds`
+  - Counters: `mcp_tool_call_total`, `mcp_tool_call_errors_total`
+  - Gauges: `mcp_dependency_health`, `mcp_dependency_health_last_probe_timestamp`
+- `services/shared/src/audit_log.py`: structured audit logging for tool invocations
+
 ## Request/Data Flow
 
 ## Indexing

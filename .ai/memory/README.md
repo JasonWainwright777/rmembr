@@ -13,11 +13,11 @@ This directory is intended to be indexed by the “targeted memory” system imp
 
 ## System Reference
 
-- [system-architecture.md](system-architecture.md): components and request/data flows
+- [system-architecture.md](system-architecture.md): components, ranking pipeline, MCP server, observability, and request/data flows
 - [api-and-tools.md](api-and-tools.md): Gateway/Index/Standards tool contracts (HTTP)
 - [data-model.md](data-model.md): Postgres tables + key constraints
-- [configuration.md](configuration.md): env vars and runtime config hotspots
-- [security.md](security.md): internal auth, persona/classification filtering, input validation
+- [configuration.md](configuration.md): env vars, policy, ranking, MCP, and runtime config
+- [security.md](security.md): internal auth, policy-based persona filtering, input validation
 - [operations-troubleshooting.md](operations-troubleshooting.md): runbooks and common failures
 
 ## Authoring Memory Packs
