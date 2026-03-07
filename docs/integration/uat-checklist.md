@@ -6,7 +6,8 @@
 - [ ] Ollama model pulled (`docker compose exec ollama ollama pull nomic-embed-text`)
 - [ ] At least one repo indexed (`python scripts/mcp-cli.py index-repo <repo>`)
 - [ ] `MCP_ENABLED=true` in `.env` or `docker-compose.yml`
-- [ ] Gateway logs show `MCP SSE transport ready at /mcp/sse`
+- [ ] Gateway logs show `MCP Streamable HTTP transport ready at /mcp`
+- [ ] Gateway logs also show `MCP SSE transport ready at /mcp/sse` for legacy compatibility
 
 ## VS Code (primary target: 1.102+)
 

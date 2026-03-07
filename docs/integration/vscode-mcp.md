@@ -40,8 +40,8 @@ Create `.vscode/mcp.json` in the root of your workspace (a sample is included in
 {
   "servers": {
     "rmembr": {
-      "type": "sse",
-      "url": "http://localhost:8080/mcp/sse",
+      "type": "http",
+      "url": "http://localhost:8080/mcp",
       "headers": {}
     }
   }
@@ -88,8 +88,9 @@ Use the MCP panel or Copilot Chat to invoke a tool. For example:
 
 | Path | Method | Description |
 |------|--------|-------------|
-| `/mcp/sse` | GET | SSE connection endpoint for MCP clients |
-| `/mcp/messages/` | POST | Message endpoint for MCP client requests |
+| `/mcp` | `GET`, `POST`, `DELETE` | Primary Streamable HTTP endpoint for MCP clients |
+| `/mcp/sse` | `GET` | Legacy SSE connection endpoint |
+| `/mcp/messages/` | `POST` | Legacy SSE message endpoint |
 
 ### Port
 
@@ -101,9 +102,9 @@ The gateway listens on port **8080** by default. If you change `GATEWAY_PORT`, u
 
 1. **Check VS Code version.** MCP support requires 1.102+. Run `code --version` to verify.
 2. **Check services are running:** `docker compose ps` — gateway should be healthy.
-3. **Check MCP is enabled:** Look for `MCP SSE transport ready at /mcp/sse` in gateway logs:
+3. **Check MCP is enabled:** Look for `MCP Streamable HTTP transport ready at /mcp` in gateway logs:
    ```bash
-   docker compose logs gateway | grep "MCP SSE"
+   docker compose logs gateway | grep "MCP"
    ```
 4. **Check the endpoint is reachable:**
    ```bash
@@ -113,7 +114,7 @@ The gateway listens on port **8080** by default. If you change `GATEWAY_PORT`, u
 ### Tools not loading
 
 1. **Verify `.vscode/mcp.json` is in the workspace root** (not a subdirectory).
-2. **Check the URL** matches the gateway port (`http://localhost:8080/mcp/sse`).
+2. **Check the URL** matches the gateway port (`http://localhost:8080/mcp`).
 3. **Reload VS Code window** (Command Palette > "Developer: Reload Window").
 
 ### Tool invocation returns errors
@@ -127,7 +128,7 @@ The gateway listens on port **8080** by default. If you change `GATEWAY_PORT`, u
 
 ### Connection drops
 
-SSE connections may drop on network interruptions. VS Code should auto-reconnect. If not, reload the window.
+Streamable HTTP should reconnect cleanly after transient interruptions. If not, reload the window and verify the gateway still responds on `/mcp`.
 
 ## Production Notes
 

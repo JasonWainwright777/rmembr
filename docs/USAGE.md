@@ -280,7 +280,7 @@ python scripts/watch-reindex.py
 
 ## MCP Client Integration
 
-rmembr exposes all 9 tools via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) over SSE transport. Any MCP-compatible client can discover and invoke tools directly.
+rmembr exposes all 9 tools via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). The primary transport is Streamable HTTP at `/mcp`; legacy SSE remains available at `/mcp/sse` and `/mcp/messages/`. Any MCP-compatible client can discover and invoke tools directly.
 
 **Setup guides:**
 

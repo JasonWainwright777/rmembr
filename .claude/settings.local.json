@@ -5,7 +5,8 @@
       "Bash(docker compose:*)",
       "Bash(curl:*)",
       "Bash(python:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "mcp__rmembr__list_standards"
     ]
   }
 }

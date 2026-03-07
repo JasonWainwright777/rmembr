@@ -68,7 +68,8 @@ Fix:
 
 - Set `MCP_ENABLED=true` in `mcp-memory-local/.env`
 - Restart: `docker compose up -d --force-recreate gateway`
-- SSE endpoint: `http://localhost:8080/mcp/sse`
+- Primary MCP endpoint: `http://localhost:8080/mcp`
+- Legacy SSE endpoint: `http://localhost:8080/mcp/sse`
 - See `docs/integration/vscode-mcp.md` or `docs/integration/claude-code-mcp.md` for client config
 
 ## Monitoring / Prometheus metrics not appearing
@@ -77,4 +78,3 @@ Fix:
 - Optional full stack (Prometheus + Grafana): `docker compose --profile monitoring up -d`
 - Dashboard JSON: `monitoring/dashboards/gateway-overview.json`
 - Alert rules: `monitoring/alerts/gateway-alerts.yaml`
-

@@ -55,7 +55,7 @@ title: Configuration
 
 ## MCP Protocol
 
-- `MCP_ENABLED` (stack default `true` in compose/env example; code fallback `false`): enable MCP SSE server on `/mcp/sse`
+- `MCP_ENABLED` (stack default `true` in compose/env example; code fallback `false`): enable MCP server; primary transport is Streamable HTTP on `/mcp`, legacy SSE remains on `/mcp/sse`
 - `MCP_STDIO_ENABLED` (default `false`): enable MCP stdio transport
 
 ## Providers (Index)

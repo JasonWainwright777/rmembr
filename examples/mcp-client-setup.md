@@ -1,6 +1,6 @@
 # rmembr MCP Client Setup & Usage
 
-How to connect VS Code, Claude Code, and OpenAI Codex CLI to the rmembr MCP server. All three clients talk to the same gateway — the only difference is config file format and transport.
+How to connect VS Code, Claude Code, and OpenAI Codex CLI to the rmembr MCP server. All three clients talk to the same gateway. Streamable HTTP on `/mcp` is the primary transport; legacy SSE remains available for compatibility.
 
 ---
 
@@ -47,8 +47,8 @@ The gateway exposes two MCP transports on port **8080**:
 
 | Transport | Endpoint | Used by |
 |-----------|----------|---------|
-| **Streamable HTTP** | `POST/GET/DELETE /mcp` | Claude Code, modern clients |
-| **Legacy SSE** | `GET /mcp/sse` + `POST /mcp/messages/` | VS Code, older clients |
+| **Streamable HTTP** | `POST/GET/DELETE /mcp` | VS Code, Claude Code, modern clients |
+| **Legacy SSE** | `GET /mcp/sse` + `POST /mcp/messages/` | Older or compatibility-only clients |
 
 Both expose the same 9 tools — pick whichever your client supports.
 
@@ -64,8 +64,8 @@ Both expose the same 9 tools — pick whichever your client supports.
 {
   "servers": {
     "rmembr": {
-      "type": "sse",
-      "url": "http://localhost:8080/mcp/sse",
+      "type": "http",
+      "url": "http://localhost:8080/mcp",
       "headers": {}
     }
   }
@@ -93,7 +93,7 @@ get_context_bundle  {"repo": "my-repo", "task": "implement OAuth login"}
 
 - **Server not appearing:** Check VS Code version (`code --version`, need 1.102+), check `docker compose ps` shows gateway healthy.
 - **Tools not loading:** Ensure `.vscode/mcp.json` is in the workspace root (not a subdirectory). Reload the window.
-- **Connection drops:** SSE connections may drop on network interruptions. VS Code should auto-reconnect; if not, reload the window.
+- **Connection drops:** Confirm the gateway still responds on `POST /mcp`, then reload the window if the client does not recover.
 
 ---
 
@@ -105,21 +105,8 @@ get_context_bundle  {"repo": "my-repo", "task": "implement OAuth login"}
 {
   "mcpServers": {
     "rmembr": {
-      "url": "http://localhost:8080/mcp/sse",
-      "transport": "sse"
-    }
-  }
-}
-```
-
-Claude Code also supports Streamable HTTP. To use it instead:
-
-```json
-{
-  "mcpServers": {
-    "rmembr": {
       "url": "http://localhost:8080/mcp",
-      "transport": "streamable-http"
+      "transport": "http"
     }
   }
 }
@@ -147,8 +134,8 @@ Add to `~/.config/claude/claude_desktop_config.json` (Linux/Mac) or `%APPDATA%\C
 {
   "mcpServers": {
     "rmembr": {
-      "url": "http://localhost:8080/mcp/sse",
-      "transport": "sse"
+      "url": "http://localhost:8080/mcp",
+      "transport": "http"
     }
   }
 }
@@ -164,22 +151,15 @@ Add to `~/.config/claude/claude_desktop_config.json` (Linux/Mac) or `%APPDATA%\C
 
 ## OpenAI Codex CLI
 
-Codex CLI supports MCP servers via its configuration file.
+Codex CLI should target the same Streamable HTTP endpoint.
 
-### 1. Create or update `~/.codex/config.json`
+### 1. Register the server
 
-```json
-{
-  "mcpServers": {
-    "rmembr": {
-      "type": "sse",
-      "url": "http://localhost:8080/mcp/sse"
-    }
-  }
-}
+```bash
+codex mcp add rmembr --url http://localhost:8080/mcp
 ```
 
-Or use the project-level `.codex/config.json` in your repo root for per-project configuration.
+Or configure the same URL in a user-level or project-level Codex MCP config.
 
 ### 2. Verify connection
 

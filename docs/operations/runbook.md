@@ -144,13 +144,13 @@ Check the relevant dashboard panels in Grafana (`localhost:3000`) and the `/metr
 **Diagnosis:**
 1. Verify MCP is enabled: `docker compose exec gateway env | grep MCP_ENABLED`
 2. Check gateway is running: `curl -s http://localhost:8080/health`
-3. Test MCP endpoint directly: `curl -s -X POST http://localhost:8080/mcp -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"0.1.0"}}}'`
+3. Test MCP endpoint directly: `curl -s -X POST http://localhost:8080/mcp -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"0.1.0"}}}'`
 4. Check client MCP config (`.vscode/mcp.json` or `.mcp.json`)
 
 **Recovery:**
 1. Set `MCP_ENABLED=true` in `.env` and restart gateway
 2. Verify the MCP endpoint responds (step 3 above)
-3. Check client-side configuration matches gateway URL and transport
+3. Check client-side configuration matches gateway URL and transport. Prefer `http://localhost:8080/mcp` with HTTP transport; use `/mcp/sse` only for legacy SSE clients.
 4. For stdio transport, verify `MCP_STDIO_ENABLED=true`
 
 **Escalation:**

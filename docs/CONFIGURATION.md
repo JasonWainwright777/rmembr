@@ -32,7 +32,7 @@ cp .env.example .env
 | `BUNDLE_CACHE_TTL_SECONDS` | `300` | gateway | Cache TTL for search-based bundles (seconds) |
 | `GATEWAY_PORT` | `8080` | gateway | Listening port |
 | **MCP** | | | |
-| `MCP_ENABLED` | `false` | gateway | Enable MCP server (SSE transport at `/mcp/sse`). Must be `true` for MCP clients (VS Code, Claude Code) to connect. |
+| `MCP_ENABLED` | `false` | gateway | Enable MCP server. Primary transport is Streamable HTTP at `/mcp`; legacy SSE remains available at `/mcp/sse` and `/mcp/messages/`. Must be `true` for MCP clients (VS Code, Claude Code) to connect. |
 | `MCP_STDIO_ENABLED` | `false` | gateway | Enable MCP stdio transport. Used for local pipe-based MCP clients. Not needed for VS Code or Claude Code. |
 | **Policy** | | | |
 | `POLICY_FILE` | *(empty)* | gateway | Path to policy bundle JSON file. If empty, built-in defaults are used (same behavior as pre-Phase 4). |

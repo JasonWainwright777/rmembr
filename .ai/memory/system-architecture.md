@@ -86,7 +86,7 @@ Index has a pluggable provider system for content sources:
 Gateway includes an optional MCP (Model Context Protocol) server:
 
 - `services/gateway/src/mcp_tools.py`: registers 9 tools
-- `services/gateway/src/mcp_server.py`: SSE transport (`/mcp/sse`, `/mcp/messages/`)
+- `services/gateway/src/mcp_server.py`: Streamable HTTP transport (`/mcp`) plus legacy SSE transport (`/mcp/sse`, `/mcp/messages/`)
 - `services/gateway/src/mcp_stdio_shim.py`: stdio transport option
 - Gated by `MCP_ENABLED` env var (default: false); stdio via `MCP_STDIO_ENABLED`
 
@@ -115,4 +115,3 @@ Gateway includes an optional MCP (Model Context Protocol) server:
 3. Gateway calls Standards `/tools/list_standards` + `/tools/get_standard` to fetch up to 5 standards
 4. Gateway filters chunks by persona classification and applies size budget
 5. Gateway returns JSON bundle and a markdown rendering
-

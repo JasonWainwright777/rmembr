@@ -18,8 +18,8 @@ Claude Code reads MCP server configs from `.mcp.json` in the project root.
 {
   "mcpServers": {
     "rmembr": {
-      "url": "http://localhost:8080/mcp/sse",
-      "transport": "sse"
+      "url": "http://localhost:8080/mcp",
+      "transport": "http"
     }
   }
 }
@@ -47,7 +47,7 @@ See the [VS Code integration guide](vscode-mcp.md#available-tools) for the full 
 2. **Check services are running:** `docker compose ps` — gateway should be healthy.
 3. **Check MCP is enabled:**
    ```bash
-   docker compose logs gateway | grep "MCP SSE"
+   docker compose logs gateway | grep "MCP"
    ```
 4. **Verify the endpoint:**
    ```bash
@@ -71,8 +71,8 @@ If you use the Claude desktop app, you can also configure the MCP server in your
 {
   "mcpServers": {
     "rmembr": {
-      "url": "http://localhost:8080/mcp/sse",
-      "transport": "sse"
+      "url": "http://localhost:8080/mcp",
+      "transport": "http"
     }
   }
 }

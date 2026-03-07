@@ -29,12 +29,12 @@ Use client-native transport support; both expose the same tool set.
 VS Code:
 
 - workspace `.vscode/mcp.json`
-- typically uses SSE transport in docs/examples
+- should target `/mcp` as the primary endpoint using HTTP transport
 
 Claude Code:
 
 - project `.mcp.json`
-- can use SSE or streamable HTTP
+- should target `/mcp` as the primary endpoint using HTTP transport; SSE remains available for compatibility
 
 Codex CLI:
 
