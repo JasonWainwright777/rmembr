@@ -1,0 +1,26 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800">
+  <foreignObject width="100%" height="100%">
+    <body xmlns="http://www.w3.org/1999/xhtml">
+      <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+      <script>mermaid.initialize({ startOnLoad: true });</script>
+      <div class="mermaid">
+        flowchart TD
+            ADO[ADO Pipeline .ai/** change] --> BUS[Azure Service Bus]
+            GH[GitHub Webhook] --> BUS
+            POLL[Confluence Poller] --> BUS
+            ADMIN[Admin Trigger] --> BUS
+
+            BUS --> WRK[Index Worker]
+
+            WRK --> FETCH[Fetch content via connector]
+            FETCH --> CHUNK[Chunk content]
+            CHUNK --> EMB[Generate embeddings]
+            EMB --> COSMOS[Update Cosmos Vector Index]
+            COSMOS --> INV[Invalidate cache]
+            INV --> REDIS[Redis]
+            INV --> BLOB[Blob]
+      </div>
+    </body>
+  </foreignObject>
+</svg>

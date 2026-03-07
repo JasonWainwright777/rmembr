@@ -1,0 +1,18 @@
+flowchart TD
+    subgraph SourceSystems
+        GH[GitHub]
+        ADO[Azure DevOps]
+        CONF[Confluence]
+        SP[SharePoint]
+    end
+
+    subgraph rMEMbrPlatform
+        COSMOS[Cosmos DB - vectors + pointers]
+        BLOB[Blob Storage - cache/artifacts]
+        REDIS[Redis - semantic cache]
+    end
+
+    SourceSystems --> COSMOS
+    COSMOS --> SourceSystems
+    SourceSystems --> BLOB
+    COSMOS --> REDIS

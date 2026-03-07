@@ -1,0 +1,36 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800">
+  <foreignObject width="100%" height="100%">
+    <body xmlns="http://www.w3.org/1999/xhtml">
+      <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+      <script>mermaid.initialize({ startOnLoad: true });</script>
+      <div class="mermaid">
+        sequenceDiagram
+            participant Client
+            participant Gateway
+            participant Redis
+            participant Index
+            participant Cosmos
+            participant Connector
+            participant Source
+
+            Client->>Gateway: Request context
+            Gateway->>Redis: Cache lookup
+            alt cache hit
+                Redis-->>Gateway: cached bundle
+                Gateway-->>Client: return
+            else cache miss
+                Gateway->>Index: resolve request
+                Index->>Cosmos: vector search
+                Cosmos-->>Index: source pointers
+                Index->>Connector: fetch source
+                Connector->>Source: retrieve content
+                Source-->>Connector: content
+                Connector-->>Index: normalized content
+                Index-->>Gateway: assembled bundle
+                Gateway-->>Client: return bundle
+            end
+      </div>
+    </body>
+  </foreignObject>
+</svg>
