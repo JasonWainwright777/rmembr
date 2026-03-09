@@ -4,6 +4,16 @@ title: System Architecture
 
 # System Architecture (mcp-memory-local)
 
+## Classification
+
+rMEMbr is a **Federated Context Retrieval System (FCRS)**:
+
+- **Federated** — multiple independent services (index, standards, gateway) each own their data domain and can be queried independently
+- **Context** — assembles contextual bundles from memory chunks, standards, and policies tailored to the requesting agent's needs
+- **Retrieval** — semantic search via pgvector embeddings with ranked results (path boost, freshness boost) assembled into bounded context windows
+
+The gateway acts as the federation layer — it fans out to index and standards services, merges results, applies budget/policy constraints, and returns a unified bundle.
+
 ## Components
 
 ## Gateway (FastAPI)
