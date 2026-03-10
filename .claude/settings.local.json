@@ -6,7 +6,9 @@
       "Bash(curl:*)",
       "Bash(python:*)",
       "Bash(pip install:*)",
-      "mcp__rmembr__list_standards"
+      "mcp__rmembr__list_standards",
+      "mcp__rmembr__get_schema",
+      "mcp__rmembr__validate_pack"
     ]
   }
 }

@@ -7,7 +7,7 @@ priority: must-follow
 
 ## How to Use These Standards
 
-When providing guidance on infrastructure, pipelines, or security topics, always check the relevant enterprise standard first. Enterprise standards take precedence over repo-level conventions.
+When providing guidance on any topic covered by an enterprise standard — including infrastructure, pipelines, security, API design, application development, containerization, observability, and testing — always check the relevant standard first. Enterprise standards take precedence over repo-level conventions.
 
 ## Classification
 
