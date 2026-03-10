@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>rMEMbr Architecture Report</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --orange: #d29922;
+    --purple: #bc8cff;
+    --red: #f85149;
+    --cyan: #39d2e0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 2rem 3rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 2.4rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+    background: linear-gradient(90deg, var(--accent), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle {
+    font-size: 1.1rem;
+    color: var(--muted);
+    margin-bottom: 2.5rem;
+  }
+  h2 {
+    font-size: 1.6rem;
+    color: var(--accent);
+    margin: 2.5rem 0 1rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    font-size: 1.15rem;
+    color: var(--purple);
+    margin: 1.5rem 0 0.5rem;
+  }
+  p, li { color: var(--text); margin-bottom: 0.5rem; }
+  ul { padding-left: 1.5rem; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  .grid .card { margin: 0; }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .badge-blue   { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .badge-green  { background: rgba(63,185,80,0.15);  color: var(--green); }
+  .badge-orange { background: rgba(210,153,34,0.15); color: var(--orange); }
+  .badge-purple { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .badge-red    { background: rgba(248,81,73,0.15);   color: var(--red); }
+  .badge-cyan   { background: rgba(57,210,224,0.15);  color: var(--cyan); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.95rem;
+  }
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--surface);
+    border-bottom: 2px solid var(--border);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  td {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  tr:hover td { background: rgba(88,166,255,0.04); }
+
+  code {
+    background: rgba(110,118,129,0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+  }
+  .mermaid {
+    margin: 1.5rem 0;
+    text-align: center;
+  }
+  .mermaid svg { max-width: 100%; }
+  .flow-label {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-top: -0.5rem;
+    margin-bottom: 1rem;
+    font-style: italic;
+  }
+  .stat-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin: 1rem 0;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    text-align: center;
+    flex: 1;
+    min-width: 140px;
+  }
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+  }
+  .stat-label {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .security-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin: 0.75rem 0;
+  }
+  .security-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    margin-top: 2px;
+  }
+  .security-icon.green { background: rgba(63,185,80,0.2); color: var(--green); }
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem 2rem;
+    margin: 1.5rem 0;
+  }
+  .toc a {
+    color: var(--accent);
+    text-decoration: none;
+    display: block;
+    padding: 3px 0;
+  }
+  .toc a:hover { text-decoration: underline; }
+  .toc ol { padding-left: 1.5rem; }
+  @media print {
+    body { background: #fff; color: #1a1a1a; padding: 1rem; }
+    .card, .stat, .toc { border-color: #ddd; background: #f8f8f8; }
+    h1 { background: none; -webkit-text-fill-color: #0969da; }
+    h2 { color: #0969da; border-color: #ddd; }
+    h3 { color: #8250df; }
+    th { background: #f0f0f0; color: #0969da; }
+    td { border-color: #e0e0e0; }
+    .badge-blue { background: #e0f0ff; color: #0550ae; }
+    .badge-green { background: #dafbe1; color: #116329; }
+    .badge-orange { background: #fff8c5; color: #7a4b00; }
+    .badge-purple { background: #f0e8ff; color: #6639ba; }
+  }
+</style>
+</head>
+<body>
+
+<h1>rMEMbr</h1>
+<p class="subtitle">Federated Context Retrieval System &mdash; Architecture Report</p>
+
+<div class="stat-row">
+  <div class="stat"><span class="stat-value">6</span><span class="stat-label">Services</span></div>
+  <div class="stat"><span class="stat-value">12</span><span class="stat-label">MCP Tools</span></div>
+  <div class="stat"><span class="stat-value">9</span><span class="stat-label">Enterprise Standards</span></div>
+  <div class="stat"><span class="stat-value">5</span><span class="stat-label">DB Tables</span></div>
+  <div class="stat"><span class="stat-value">3</span><span class="stat-label">Caching Layers</span></div>
+</div>
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#topology">Service Topology</a></li>
+    <li><a href="#user-flow">User Flow: Onboarding a Repo</a></li>
+    <li><a href="#bundle-flow">Context Bundle Assembly</a></li>
+    <li><a href="#standards">Task-Aware Standard Selection</a></li>
+    <li><a href="#registration">Dynamic Repo Registration</a></li>
+    <li><a href="#caching">Caching Architecture</a></li>
+    <li><a href="#data-model">Data Model</a></li>
+    <li><a href="#mcp-tools">MCP Tool Catalog</a></li>
+    <li><a href="#security">Security Model</a></li>
+    <li><a href="#policy">Policy &amp; Authorization</a></li>
+  </ol>
+</nav>
+
+<!-- ================================================================ -->
+<h2 id="topology">1. Service Topology</h2>
+
+<div class="mermaid">
+graph TB
+    subgraph Clients["AI Clients"]
+        CC["Claude Code"]
+        VS["VS Code Copilot"]
+        OT["Other MCP Clients"]
+    end
+
+    subgraph Gateway["Gateway :8080"]
+        MCP["MCP Protocol<br/>(Streamable HTTP + SSE)"]
+        ORCH["Bundle Orchestrator"]
+        POL["Policy Engine"]
+        BC["Bundle Cache"]
+    end
+
+    subgraph Index["Index Service :8081"]
+        IDX["Ingestion Pipeline"]
+        SEARCH["Semantic Search"]
+        REG["Repo Registry"]
+        PROV["Provider Framework"]
+    end
+
+    subgraph Standards["Standards Service :8082"]
+        GHC["GitHub Standards Client"]
+        META["Metadata Cache"]
+    end
+
+    subgraph Data["Data Layer"]
+        PG["PostgreSQL + pgvector"]
+        OL["Ollama<br/>(nomic-embed-text)"]
+    end
+
+    subgraph External["External"]
+        GH["GitHub API"]
+    end
+
+    CC --> MCP
+    VS --> MCP
+    OT --> MCP
+    MCP --> ORCH
+    ORCH --> POL
+    ORCH --> BC
+    ORCH -->|resolve_context| SEARCH
+    ORCH -->|list/get standards| GHC
+    ORCH -->|internal/manifest| REG
+
+    IDX --> OL
+    IDX --> PG
+    SEARCH --> PG
+    SEARCH --> OL
+    REG --> PG
+    PROV --> GH
+    GHC --> GH
+    GHC --> PG
+    PROV --> PG
+
+    classDef client fill:#1a2332,stroke:#58a6ff,color:#e6edf3
+    classDef gateway fill:#1a2332,stroke:#bc8cff,color:#e6edf3
+    classDef index fill:#1a2332,stroke:#3fb950,color:#e6edf3
+    classDef standards fill:#1a2332,stroke:#d29922,color:#e6edf3
+    classDef data fill:#1a2332,stroke:#39d2e0,color:#e6edf3
+    classDef external fill:#1a2332,stroke:#f85149,color:#e6edf3
+
+    class CC,VS,OT client
+    class MCP,ORCH,POL,BC gateway
+    class IDX,SEARCH,REG,PROV index
+    class GHC,META standards
+    class PG,OL data
+    class GH external
+</div>
+<p class="flow-label">Fig 1. System topology &mdash; Gateway orchestrates Index + Standards, all backed by Postgres + Ollama</p>
+
+<div class="grid">
+  <div class="card">
+    <h3>Gateway <span class="badge badge-purple">:8080</span></h3>
+    <p>MCP protocol endpoint. Orchestrates context bundle assembly, enforces policy, caches bundles. The single entry point for all AI clients.</p>
+  </div>
+  <div class="card">
+    <h3>Index Service <span class="badge badge-green">:8081</span></h3>
+    <p>Ingests memory packs, computes embeddings, provides semantic search. Manages the provider framework (GitHub, Filesystem) and repo registry.</p>
+  </div>
+  <div class="card">
+    <h3>Standards Service <span class="badge badge-orange">:8082</span></h3>
+    <p>Serves enterprise standards live from GitHub. Two-layer caching (ETag + blob SHA) minimizes API calls. Updates propagate automatically.</p>
+  </div>
+  <div class="card">
+    <h3>PostgreSQL + pgvector <span class="badge badge-cyan">Data</span></h3>
+    <p>Vector database with HNSW indexing for cosine similarity search. Stores chunks, embeddings, packs, caches, and the repo registry.</p>
+  </div>
+  <div class="card">
+    <h3>Ollama <span class="badge badge-cyan">Data</span></h3>
+    <p>Local embedding model (<code>nomic-embed-text</code>, 768 dimensions). Generates embeddings for both indexing and query-time search.</p>
+  </div>
+  <div class="card">
+    <h3>GitHub API <span class="badge badge-red">External</span></h3>
+    <p>Source of truth for repo memory packs and enterprise standards. ETag-based caching keeps steady-state costs at 0&ndash;2 API calls per repo.</p>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="user-flow">2. User Flow: Onboarding a Repo</h2>
+
+<div class="mermaid">
+sequenceDiagram
+    participant Dev as Developer
+    participant AI as AI Assistant
+    participant GW as Gateway
+    participant IX as Index Service
+    participant GH as GitHub
+
+    Note over Dev: Step 1: Create .ai/memory/ pack
+    Dev->>GH: Push manifest.yaml + instructions.md
+
+    Note over Dev: Step 2: Register via MCP
+    Dev->>AI: "Register my repo: owner/my-service"
+    AI->>GW: register_repo(repo="owner/my-service")
+    GW->>IX: POST /tools/register_repo
+    IX->>GH: GET /contents/.ai/memory/manifest.yaml
+    GH-->>IX: 200 OK (manifest exists)
+    IX->>IX: Upsert repo_registry
+    IX-->>GW: {status: "registered"}
+    GW-->>AI: "Repo registered"
+
+    Note over Dev: Step 3: Index
+    Dev->>AI: "Index my repo"
+    AI->>GW: index_repo(repo="my-service")
+    GW->>IX: POST /tools/index_repo
+    IX->>GH: GET /git/trees/main:.ai
+    GH-->>IX: Tree with blob SHAs
+    IX->>GH: GET /git/blobs/{sha} (per doc)
+    GH-->>IX: Markdown content
+    IX->>IX: Chunk + embed + store
+    IX-->>GW: {chunks_new: 12}
+    GW-->>AI: "Indexed 12 chunks"
+
+    Note over Dev: Step 4: Use automatically
+    Dev->>AI: "Add a REST API endpoint"
+    AI->>GW: get_context_bundle(repo, task)
+    GW-->>AI: Bundle with REST API standard + repo context
+    Note over AI: AI now knows your standards
+</div>
+<p class="flow-label">Fig 2. Complete onboarding flow &mdash; from creating the pack to automatic context retrieval</p>
+
+<div class="card">
+  <h3>Key Insight: Zero-Friction After Setup</h3>
+  <p>Once a repo is registered and indexed, add one line to <code>CLAUDE.md</code>:</p>
+  <p><code>Before starting any coding task, call get_context_bundle with the repo name and task description.</code></p>
+  <p>From that point, every AI-assisted task automatically gets the right enterprise standards &mdash; developers never have to ask.</p>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="bundle-flow">3. Context Bundle Assembly</h2>
+
+<div class="mermaid">
+flowchart TB
+    START([get_context_bundle<br/>repo, task, persona]) --> CACHE{Bundle<br/>cached?}
+    CACHE -->|HIT| RETURN([Return cached bundle])
+    CACHE -->|MISS| RESOLVE
+
+    RESOLVE["Resolve Context<br/>Embed task → vector search<br/>→ top-k ranked chunks"]
+    RESOLVE --> STANDARDS
+
+    subgraph STANDARDS["Standard Selection Pipeline"]
+        LIST["List all 9 standards<br/>(from GitHub)"]
+        MANIFEST["Get pinned standards<br/>(from repo manifest)"]
+        SELECT["Task-aware selection:<br/>1. Include all pinned<br/>2. Keyword-match remaining<br/>3. Cap at max_standards=5"]
+        FETCH["Fetch selected<br/>standard content"]
+
+        LIST --> SELECT
+        MANIFEST --> SELECT
+        SELECT --> FETCH
+    end
+
+    FETCH --> FILTER
+
+    FILTER["Classification filter<br/>(internal corporate use)"]
+    FILTER --> PRIORITY
+
+    PRIORITY["Assign priority classes:<br/>enterprise_must_follow<br/>repo_must_follow<br/>task_specific"]
+    PRIORITY --> BUDGET
+
+    BUDGET["Apply size budget<br/>(max 40,000 chars)"]
+    BUDGET --> RENDER
+
+    RENDER["Render markdown<br/>+ cache bundle"]
+    RENDER --> DONE([Return bundle<br/>+ standards_selection metadata])
+
+    style START fill:#1a2332,stroke:#bc8cff,color:#e6edf3
+    style RETURN fill:#1a2332,stroke:#3fb950,color:#e6edf3
+    style DONE fill:#1a2332,stroke:#3fb950,color:#e6edf3
+    style CACHE fill:#1a2332,stroke:#d29922,color:#e6edf3
+    style SELECT fill:#1a2332,stroke:#58a6ff,color:#e6edf3
+</div>
+<p class="flow-label">Fig 3. Bundle assembly pipeline &mdash; from task description to governed AI context</p>
+
+<div class="card">
+  <h3>Bundle Output Structure</h3>
+  <table>
+    <tr><th>Field</th><th>Description</th></tr>
+    <tr><td><code>bundle_id</code></td><td>UUID for explain/audit</td></tr>
+    <tr><td><code>standards_content[]</code></td><td>Full markdown of selected standards (live from GitHub)</td></tr>
+    <tr><td><code>standards_selection[]</code></td><td>Why each standard was selected: <code>pinned</code> vs <code>keyword_match</code>, score, matched keywords</td></tr>
+    <tr><td><code>chunks[]</code></td><td>Ranked repo context with similarity scores, provenance, priority class</td></tr>
+    <tr><td><code>total_candidates</code></td><td>How many chunks were considered</td></tr>
+    <tr><td><code>markdown</code></td><td>Pre-rendered bundle ready for AI consumption</td></tr>
+  </table>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="standards">4. Task-Aware Standard Selection</h2>
+
+<div class="mermaid">
+flowchart LR
+    TASK["Task: 'Write a Bicep<br/>module for storage'"]
+    TASK --> TOKENIZE
+
+    subgraph TOKENIZE["Tokenize"]
+        T1["bicep, module, storage"]
+    end
+
+    TOKENIZE --> MATCH
+
+    subgraph MATCH["Score 9 Standards"]
+        S1["Bicep IaC<br/>tokens: bicep, infrastructure...<br/>overlap: {bicep} → score 1"]
+        S2["Terraform Versioning<br/>tokens: terraform, module...<br/>overlap: {module} → score 1"]
+        S3["REST API Design<br/>tokens: rest, api, design...<br/>overlap: {} → score 0"]
+        S4["...6 more → score 0"]
+    end
+
+    MATCH --> RESULT
+
+    subgraph RESULT["Selected (budget=5)"]
+        R1["Bicep IaC ✓<br/>reason: keyword_match"]
+        R2["Terraform Versioning ✓<br/>reason: keyword_match"]
+        R3["7 excluded<br/>(score 0, no pin)"]
+    end
+
+    style TASK fill:#1a2332,stroke:#58a6ff,color:#e6edf3
+    style S1 fill:#1a2332,stroke:#3fb950,color:#e6edf3
+    style S2 fill:#1a2332,stroke:#3fb950,color:#e6edf3
+    style S3 fill:#1a2332,stroke:#f85149,color:#e6edf3
+    style R1 fill:#1a2332,stroke:#3fb950,color:#e6edf3
+    style R2 fill:#1a2332,stroke:#3fb950,color:#e6edf3
+    style R3 fill:#1a2332,stroke:#f85149,color:#e6edf3
+</div>
+<p class="flow-label">Fig 4. Keyword matching selects only relevant standards &mdash; no token budget wasted</p>
+
+<div class="card">
+  <h3>Two-Layer Control</h3>
+  <table>
+    <tr><th>Layer</th><th>Who Controls It</th><th>How It Works</th></tr>
+    <tr>
+      <td><span class="badge badge-orange">Manifest Pinning</span></td>
+      <td>Repo owners / platform teams</td>
+      <td>List standard IDs in <code>manifest.yaml → references.standards</code>. Always included regardless of task.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-blue">Keyword Matching</span></td>
+      <td>Automatic (AI discovers)</td>
+      <td>Tokenize task + standard metadata, score by set intersection, select top-scoring up to budget.</td>
+    </tr>
+  </table>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h3>Example: Bicep Task</h3>
+    <p><strong>Task:</strong> "Write a Bicep module for a storage account"</p>
+    <p><strong>Selected:</strong> Bicep IaC Standard (keyword: <code>bicep</code>), Terraform Versioning (keyword: <code>module</code>)</p>
+    <p><strong>Excluded:</strong> REST API, Docker, .NET, Observability, Security, ADO, Testing</p>
+  </div>
+  <div class="card">
+    <h3>Example: REST API Task</h3>
+    <p><strong>Task:</strong> "Add a new REST API endpoint"</p>
+    <p><strong>Selected:</strong> REST API Design Standard (keywords: <code>api</code>, <code>rest</code>)</p>
+    <p><strong>Excluded:</strong> All 8 others &mdash; only 1 standard uses tokens</p>
+  </div>
+  <div class="card">
+    <h3>Example: Generic Task</h3>
+    <p><strong>Task:</strong> "Understand the project structure"</p>
+    <p><strong>Selected:</strong> None &mdash; zero standards, zero tokens wasted</p>
+    <p><strong>Result:</strong> Bundle contains only repo context chunks</p>
+  </div>
+  <div class="card">
+    <h3>Example: Pinned Standard</h3>
+    <p><strong>Task:</strong> "Refactor database queries" (in sample-repo-b)</p>
+    <p><strong>Selected:</strong> Bicep IaC Standard (pinned in manifest, not from keywords)</p>
+    <p><strong>Reason:</strong> Repo owner mandated it &mdash; governance enforced regardless of task</p>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="registration">5. Dynamic Repo Registration</h2>
+
+<div class="mermaid">
+flowchart TB
+    subgraph Before["Before: Static Configuration"]
+        E1["Edit .env file"] --> E2["Set GITHUB_REPOS=owner/repo"]
+        E2 --> E3["docker compose up -d"]
+        E3 --> E4["Wait for restart"]
+        E4 --> E5["Index via MCP"]
+    end
+
+    subgraph After["After: Dynamic Registration"]
+        A1["AI: register_repo<br/>(owner/repo)"] --> A2["Validates manifest exists"]
+        A2 --> A3["Stores in repo_registry"]
+        A3 --> A4["AI: index_repo"]
+        A4 --> A5["Ready to use"]
+    end
+
+    style Before fill:#1a2332,stroke:#f85149,color:#e6edf3
+    style After fill:#1a2332,stroke:#3fb950,color:#e6edf3
+</div>
+<p class="flow-label">Fig 5. Before vs. after &mdash; no more env var editing or container restarts</p>
+
+<div class="card">
+  <h3>How It Works</h3>
+  <div class="mermaid">
+  flowchart LR
+      REG["register_repo<br/>owner/my-service"]
+      REG --> VAL{Validate}
+      VAL -->|Has manifest?| YES["Upsert repo_registry<br/>(enabled=true)"]
+      VAL -->|No manifest| ERR["404: Missing<br/>manifest.yaml"]
+      YES --> ENUM["enumerate_repos() merges:<br/>ENV_VAR repos + DB repos"]
+      ENUM --> IDX["index_repo<br/>finds new repo"]
+
+      style REG fill:#1a2332,stroke:#58a6ff,color:#e6edf3
+      style YES fill:#1a2332,stroke:#3fb950,color:#e6edf3
+      style ERR fill:#1a2332,stroke:#f85149,color:#e6edf3
+  </div>
+  <p>The GitHub provider's <code>enumerate_repos()</code> now merges two sources:</p>
+  <ul>
+    <li><strong>Static:</strong> <code>GITHUB_REPOS</code> env var (backward compatible, for bootstrapping)</li>
+    <li><strong>Dynamic:</strong> <code>repo_registry</code> table (added via MCP at runtime)</li>
+  </ul>
+  <p>Duplicates are deduplicated. Disabled repos are excluded.</p>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="caching">6. Caching Architecture</h2>
+
+<div class="mermaid">
+flowchart TB
+    subgraph L1["Layer 1: Bundle Cache (Gateway)"]
+        BK["cache_key = SHA-256<br/>(namespace:repo:task_hash:ref:version)"]
+        BK --> BC["bundle_cache table<br/>TTL = 300s"]
+    end
+
+    subgraph L2["Layer 2: GitHub Tree Cache (Index + Standards)"]
+        TC["ETag tree cache<br/>If-None-Match header"]
+        TC -->|304 Not Modified| SKIP["0 API calls<br/>Use cached blob SHAs"]
+        TC -->|200 OK| UPDATE["Parse new tree<br/>Update cache"]
+    end
+
+    subgraph L3["Layer 3: GitHub Blob Cache (Index + Standards)"]
+        BL["Blob SHA cache<br/>Immutable content"]
+        BL --> HIT["Cache hit:<br/>Return stored text"]
+        BL --> MISS["Cache miss:<br/>Fetch + store"]
+    end
+
+    L1 -.->|miss| L2
+    L2 -.->|needs content| L3
+
+    style L1 fill:#1a2332,stroke:#bc8cff,color:#e6edf3
+    style L2 fill:#1a2332,stroke:#d29922,color:#e6edf3
+    style L3 fill:#1a2332,stroke:#3fb950,color:#e6edf3
+</div>
+<p class="flow-label">Fig 6. Three caching layers minimize latency and GitHub API usage</p>
+
+<div class="grid">
+  <div class="card">
+    <h3><span class="badge badge-purple">Layer 1</span> Bundle Cache</h3>
+    <p><strong>What:</strong> Entire assembled bundles (chunks + standards + metadata)</p>
+    <p><strong>Key:</strong> SHA-256 of namespace:repo:task_hash:ref:version</p>
+    <p><strong>TTL:</strong> 300 seconds (configurable)</p>
+    <p><strong>Effect:</strong> Repeated identical tasks return instantly</p>
+  </div>
+  <div class="card">
+    <h3><span class="badge badge-orange">Layer 2</span> GitHub Tree Cache</h3>
+    <p><strong>What:</strong> Git tree structure (file paths + blob SHAs)</p>
+    <p><strong>Key:</strong> ETag from GitHub API</p>
+    <p><strong>TTL:</strong> Until tree changes (ETag mismatch)</p>
+    <p><strong>Effect:</strong> Steady-state indexing = 1 API call (304 response)</p>
+  </div>
+  <div class="card">
+    <h3><span class="badge badge-green">Layer 3</span> Blob Content Cache</h3>
+    <p><strong>What:</strong> Raw file content keyed by Git blob SHA</p>
+    <p><strong>Key:</strong> Blob SHA (content-addressable, immutable)</p>
+    <p><strong>TTL:</strong> Forever (SHA changes when content changes)</p>
+    <p><strong>Effect:</strong> Changed files re-fetch; unchanged files never re-fetch</p>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="data-model">7. Data Model</h2>
+
+<div class="mermaid">
+erDiagram
+    repo_registry {
+        bigserial id PK
+        text provider
+        text namespace
+        text repo_name
+        text external_id
+        boolean enabled
+        text registered_by
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    memory_packs {
+        bigserial id PK
+        text namespace
+        text repo
+        int pack_version
+        jsonb owners
+        text classification
+        text embedding_model
+        text last_indexed_ref
+        jsonb references_standards
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    memory_chunks {
+        bigserial id PK
+        text namespace
+        text repo
+        text ref
+        text path
+        text anchor
+        text heading
+        text chunk_text
+        vector_768 embedding
+        text content_hash
+        text provider_name
+        text external_id
+        text classification
+        timestamptz created_at
+    }
+
+    github_cache {
+        bigserial id PK
+        text cache_type
+        text cache_key
+        text etag
+        text content
+        text tree_sha
+        jsonb blob_shas
+    }
+
+    bundle_cache {
+        bigserial id PK
+        text cache_key
+        jsonb bundle_json
+        timestamptz expires_at
+    }
+
+    repo_registry ||--o{ memory_packs : "registered → indexed"
+    memory_packs ||--o{ memory_chunks : "repo has chunks"
+</div>
+<p class="flow-label">Fig 7. Five core tables &mdash; registration, packs, chunks (with vectors), and two cache layers</p>
+
+<!-- ================================================================ -->
+<h2 id="mcp-tools">8. MCP Tool Catalog</h2>
+
+<table>
+  <tr>
+    <th>Tool</th>
+    <th>Category</th>
+    <th>Description</th>
+    <th>Handler</th>
+  </tr>
+  <tr>
+    <td><code>register_repo</code></td>
+    <td><span class="badge badge-green">Registry</span></td>
+    <td>Register a GitHub repo for indexing (validates manifest)</td>
+    <td>Index proxy</td>
+  </tr>
+  <tr>
+    <td><code>unregister_repo</code></td>
+    <td><span class="badge badge-green">Registry</span></td>
+    <td>Soft-disable or purge a registered repo</td>
+    <td>Index proxy</td>
+  </tr>
+  <tr>
+    <td><code>list_repos</code></td>
+    <td><span class="badge badge-green">Registry</span></td>
+    <td>List all known repos with index status</td>
+    <td>Index proxy</td>
+  </tr>
+  <tr>
+    <td><code>index_repo</code></td>
+    <td><span class="badge badge-blue">Indexing</span></td>
+    <td>Trigger indexing for a single repo</td>
+    <td>Index proxy</td>
+  </tr>
+  <tr>
+    <td><code>index_all</code></td>
+    <td><span class="badge badge-blue">Indexing</span></td>
+    <td>Trigger indexing for all discovered repos</td>
+    <td>Index proxy</td>
+  </tr>
+  <tr>
+    <td><code>search_repo_memory</code></td>
+    <td><span class="badge badge-purple">Retrieval</span></td>
+    <td>Semantic search over indexed memory chunks</td>
+    <td>Index proxy</td>
+  </tr>
+  <tr>
+    <td><code>get_context_bundle</code></td>
+    <td><span class="badge badge-purple">Retrieval</span></td>
+    <td>Assemble full context bundle (chunks + standards)</td>
+    <td>Gateway</td>
+  </tr>
+  <tr>
+    <td><code>explain_context_bundle</code></td>
+    <td><span class="badge badge-purple">Retrieval</span></td>
+    <td>Explain how a bundle was constructed</td>
+    <td>Gateway</td>
+  </tr>
+  <tr>
+    <td><code>validate_pack</code></td>
+    <td><span class="badge badge-purple">Retrieval</span></td>
+    <td>Verify a repo's pack is indexed and queryable</td>
+    <td>Gateway</td>
+  </tr>
+  <tr>
+    <td><code>list_standards</code></td>
+    <td><span class="badge badge-orange">Standards</span></td>
+    <td>List available enterprise standard IDs</td>
+    <td>Standards proxy</td>
+  </tr>
+  <tr>
+    <td><code>get_standard</code></td>
+    <td><span class="badge badge-orange">Standards</span></td>
+    <td>Retrieve full standard content</td>
+    <td>Standards proxy</td>
+  </tr>
+  <tr>
+    <td><code>get_schema</code></td>
+    <td><span class="badge badge-orange">Standards</span></td>
+    <td>Retrieve a JSON/YAML schema file</td>
+    <td>Standards proxy</td>
+  </tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="security">9. Security Model</h2>
+
+<div class="card">
+  <div class="security-item">
+    <div class="security-icon green">&#10003;</div>
+    <div><strong>Repo validation before registration</strong> &mdash; GitHub API confirms the repo exists and has <code>.ai/memory/manifest.yaml</code> before it's stored. No phantom or typosquatted repos.</div>
+  </div>
+  <div class="security-item">
+    <div class="security-icon green">&#10003;</div>
+    <div><strong>Env-var repo protection</strong> &mdash; Repos configured via <code>GITHUB_REPOS</code> cannot be unregistered via MCP. Only DB-registered repos can be removed dynamically.</div>
+  </div>
+  <div class="security-item">
+    <div class="security-icon green">&#10003;</div>
+    <div><strong>Internal service auth</strong> &mdash; All gateway-to-service communication uses <code>X-Internal-Token</code> headers. New endpoints use the same guard.</div>
+  </div>
+  <div class="security-item">
+    <div class="security-icon green">&#10003;</div>
+    <div><strong>No code execution</strong> &mdash; Memory packs contain markdown text only. Content is chunked, embedded, and stored &mdash; never evaluated, rendered, or executed.</div>
+  </div>
+  <div class="security-item">
+    <div class="security-icon green">&#10003;</div>
+    <div><strong>Registration rate limiting</strong> &mdash; <code>MAX_REGISTERED_REPOS</code> cap (default 50) prevents mass registration. Configurable via env var.</div>
+  </div>
+  <div class="security-item">
+    <div class="security-icon green">&#10003;</div>
+    <div><strong>Namespace isolation</strong> &mdash; All queries filter by namespace. Repos in <code>team-a</code> namespace are invisible to <code>team-b</code>.</div>
+  </div>
+  <div class="security-item">
+    <div class="security-icon green">&#10003;</div>
+    <div><strong>No credentials in MCP API</strong> &mdash; The <code>register_repo</code> tool accepts <code>owner/repo</code> only. GitHub auth uses the pre-configured server-side token.</div>
+  </div>
+  <div class="security-item">
+    <div class="security-icon green">&#10003;</div>
+    <div><strong>Classification-based filtering</strong> &mdash; All content is tagged <code>internal</code>. The classification system ensures corporate context stays within the organization's AI tooling.</div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="policy">10. Policy &amp; Authorization</h2>
+
+<div class="mermaid">
+flowchart LR
+    CALL["MCP Tool Call"]
+    CALL --> AUTHZ{"ToolAuthz:<br/>role allowed?"}
+    AUTHZ -->|Denied| DENY["403 + Audit Log"]
+    AUTHZ -->|Allowed| BUDGET["BudgetPolicy:<br/>clamp k, enforce limits"]
+    BUDGET --> EXEC["Execute Tool"]
+    EXEC --> FILTER["PersonaPolicy:<br/>filter by classification"]
+    FILTER --> AUDIT["Audit Log:<br/>tool, role, duration, provenance"]
+    AUDIT --> RESP["Response"]
+
+    style DENY fill:#1a2332,stroke:#f85149,color:#e6edf3
+    style RESP fill:#1a2332,stroke:#3fb950,color:#e6edf3
+</div>
+<p class="flow-label">Fig 8. Every tool call passes through authorization, budget enforcement, and audit logging</p>
+
+<div class="grid">
+  <div class="card">
+    <h3>Tool Authorization</h3>
+    <p><strong>Default action:</strong> deny</p>
+    <p><strong>Roles:</strong> reader (search, bundle, standards), writer (index), admin (all)</p>
+    <p>Configurable via <code>POLICY_FILE</code> with optional hot-reload.</p>
+  </div>
+  <div class="card">
+    <h3>Budget Policy</h3>
+    <table>
+      <tr><td>max_bundle_chars</td><td>40,000</td></tr>
+      <tr><td>max_sources</td><td>50</td></tr>
+      <tr><td>max_standards</td><td>5</td></tr>
+      <tr><td>default_k</td><td>12</td></tr>
+      <tr><td>cache_ttl</td><td>300s</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>Data Classification</h3>
+    <p>All content is classified <span class="badge badge-blue">internal</span> &mdash; this is a corporate-internal system providing context to AI assistants working within the organization. All indexed repos and enterprise standards are internal corporate assets.</p>
+  </div>
+  <div class="card">
+    <h3>Audit Trail</h3>
+    <p>Every tool call is logged with:</p>
+    <ul>
+      <li>Tool name + action (invoke/deny/error)</li>
+      <li>Subject (role), repo, correlation ID</li>
+      <li>Duration (ms), provenance refs</li>
+    </ul>
+  </div>
+</div>
+
+<hr style="border-color: var(--border); margin: 3rem 0 1rem;">
+<p style="color: var(--muted); text-align: center; font-size: 0.85rem;">
+  rMEMbr Architecture Report &mdash; Generated 2026-03-10 &mdash; Federated Context Retrieval System v1
+</p>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1a2332',
+      primaryTextColor: '#e6edf3',
+      primaryBorderColor: '#58a6ff',
+      lineColor: '#8b949e',
+      secondaryColor: '#161b22',
+      tertiaryColor: '#161b22',
+      fontSize: '14px',
+    },
+    flowchart: { curve: 'basis', padding: 15 },
+    sequence: { mirrorActors: false, actorMargin: 50 },
+    er: { fontSize: '12px' }
+  });
+</script>
+</body>
+</html>
