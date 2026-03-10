@@ -92,4 +92,5 @@ Show that the same system works for rMEMbr's own repo.
 4. **Live from GitHub** — Update a standard, every AI assistant gets it immediately
 5. **Explainable** — Full audit trail of what context was provided and why
 6. **Federated** — Repo teams own their memory packs, architecture team owns the standards, rMEMbr orchestrates
-7. **No vendor lock-in** — Works with any MCP-compatible AI client (Claude Code, VS Code Copilot, etc.)
+7. **Zero-friction adoption** — Add a `CLAUDE.md` one-liner and context loads automatically, developers never have to ask
+8. **No vendor lock-in** — Works with any MCP-compatible AI client (Claude Code, VS Code Copilot, etc.)

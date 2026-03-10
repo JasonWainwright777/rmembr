@@ -97,9 +97,21 @@ rMEMbr chunks your markdown at `##` and `###` headings. Follow these rules for o
 
 rMEMbr discovers repos via its **provider framework**. Use the method that fits your setup.
 
-### GitHub Provider (Recommended)
+### MCP Registration (Recommended)
 
-If your repo is on GitHub, configure these env vars in the rMEMbr stack's `.env`:
+If rMEMbr is already running and your repo is on GitHub, register it directly through your AI assistant:
+
+> *"Register my repo in rMEMbr: `owner/my-repo`"*
+
+This calls the `register_repo` MCP tool, which validates the repo has `.ai/memory/manifest.yaml` and adds it to the index. No env var changes or restarts needed.
+
+You can also verify what's registered:
+
+> *"List all repos in rMEMbr"*
+
+### GitHub Provider (Environment Config)
+
+For bootstrapping or permanent repos, configure these env vars in the rMEMbr stack's `.env`:
 
 ```env
 ACTIVE_PROVIDERS=github
@@ -108,6 +120,8 @@ GITHUB_REPOS=owner/your-repo          # comma-separated for multiple repos
 ```
 
 The GitHub provider reads `.ai/memory/` directly from your repo via the GitHub API. No symlinks, no copying, no volume mounts. It uses a two-layer cache (tree ETag + blob SHA) so steady-state indexing costs 0-2 API calls.
+
+> **Note:** Env-var repos and MCP-registered repos are merged automatically. Repos in both sources are deduplicated.
 
 #### Enterprise Standards Repo
 
@@ -180,7 +194,21 @@ Add to your user settings (`settings.json`) or create `.vscode/mcp.json` per pro
 }
 ```
 
-## Step 5: Index and Verify
+## Step 5: Auto-Load Context (Recommended)
+
+Add a `CLAUDE.md` file to the root of your repository so Claude Code automatically pulls rMEMbr context at the start of every task:
+
+```markdown
+# AI Assistant Instructions
+
+Before starting any coding task, call the `get_context_bundle` MCP tool with the repo name and a brief task description to load enterprise standards and repo-specific context.
+```
+
+This means developers never have to remember to ask for context — Claude will call `get_context_bundle` on its own and receive only the standards relevant to the current task.
+
+> **VS Code Copilot:** Add equivalent instructions to `.github/copilot-instructions.md` for the same effect in VS Code.
+
+## Step 6: Index and Verify
 
 All interaction happens through MCP tools — no scripts needed from your repo.
 
@@ -199,6 +227,9 @@ These are the tools available to your AI assistant once the MCP client is config
 
 | Tool | What It Does |
 |------|-------------|
+| `register_repo` | Register a GitHub repo for indexing (no restart needed) |
+| `unregister_repo` | Remove a dynamically registered repo |
+| `list_repos` | List all known repos and their index status |
 | `index_repo` | Index (or re-index) your repo's memory pack |
 | `index_all` | Index all discovered repos |
 | `validate_pack` | Verify a pack is indexed and queryable |

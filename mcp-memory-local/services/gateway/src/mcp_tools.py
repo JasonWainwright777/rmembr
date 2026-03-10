@@ -1,4 +1,4 @@
-"""MCP tool definitions — registers 9 tools from gateway-mcp-tools.md contract.
+"""MCP tool definitions — registers 12 tools from gateway-mcp-tools.md contract.
 
 Each tool maps to an extracted handler in server.py or a proxy call to
 Index/Standards services.
@@ -153,6 +153,44 @@ TOOL_DEFINITIONS: list[Tool] = [
             "additionalProperties": False,
         },
     ),
+    Tool(
+        name="register_repo",
+        description="Register a GitHub repository for indexing in rMEMbr. The repo must have a .ai/memory/manifest.yaml file.",
+        inputSchema={
+            "type": "object",
+            "required": ["repo"],
+            "properties": {
+                "repo": {"type": "string", "description": "Repository in 'owner/repo' format (e.g. 'myorg/my-service').", "minLength": 3},
+                "provider": {"type": "string", "description": "Provider name.", "default": "github"},
+                "namespace": {"type": "string", "default": "default"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    Tool(
+        name="unregister_repo",
+        description="Remove a dynamically registered repository from rMEMbr. Cannot remove env-var configured repos.",
+        inputSchema={
+            "type": "object",
+            "required": ["repo"],
+            "properties": {
+                "repo": {"type": "string", "description": "Repository name.", "minLength": 1},
+                "provider": {"type": "string", "default": "github"},
+                "namespace": {"type": "string", "default": "default"},
+                "purge": {"type": "boolean", "description": "If true, also delete all indexed data for this repo.", "default": False},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    Tool(
+        name="list_repos",
+        description="List all known repositories and their index status.",
+        inputSchema={
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 
@@ -173,6 +211,9 @@ _TOOL_DISPATCH = {
     "list_standards":          ("proxy_standards", "list_standards"),
     "get_standard":            ("proxy_standards", "get_standard"),
     "get_schema":              ("proxy_standards", "get_schema"),
+    "register_repo":           ("proxy_index", "register_repo"),
+    "unregister_repo":         ("proxy_index", "unregister_repo"),
+    "list_repos":              ("proxy_index", "list_repos"),
 }
 
 
@@ -274,7 +315,7 @@ class McpToolError(Exception):
 
 
 def register_tools(server: Server) -> None:
-    """Register all 9 MCP tools on the given MCP Server instance."""
+    """Register all 12 MCP tools on the given MCP Server instance."""
 
     @server.list_tools()
     async def list_tools() -> list[Tool]:

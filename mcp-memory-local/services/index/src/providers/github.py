@@ -103,12 +103,42 @@ class GitHubProvider:
                 f"GitHub API error {status} for {repo}{ctx}"
             )
 
+    async def validate_repo(self, owner_repo: str) -> bool:
+        """Check if a GitHub repo exists and has .ai/memory/manifest.yaml."""
+        url = f"{self._api_url}/repos/{owner_repo}/contents/.ai/memory/manifest.yaml"
+        resp = await self._client.get(url)
+        self._check_rate_limit(resp)
+        if resp.status_code == 404:
+            return False
+        if resp.status_code >= 400:
+            self._handle_error(resp, owner_repo, "validate_repo")
+        return True
+
+    async def _get_db_repos(self) -> list[str]:
+        """Load dynamically registered repos from repo_registry table."""
+        if self._pool is None:
+            return []
+        try:
+            async with self._pool.acquire() as conn:
+                rows = await conn.fetch(
+                    "SELECT external_id FROM repo_registry "
+                    "WHERE provider = 'github' AND enabled = true"
+                )
+            return [row["external_id"] for row in rows]
+        except Exception:
+            logger.warning("Failed to load registered repos from DB", exc_info=True)
+            return []
+
     async def enumerate_repos(self) -> AsyncIterator[RepoDescriptor]:
-        repos = self._repo_list()
-        if not repos:
+        # Merge env-var repos + DB-registered repos, deduplicate
+        repo_sources = set(self._repo_list())
+        db_repos = await self._get_db_repos()
+        repo_sources.update(db_repos)
+
+        if not repo_sources:
             return
 
-        for owner_repo in repos:
+        for owner_repo in sorted(repo_sources):
             url = f"{self._api_url}/repos/{owner_repo}/contents/.ai/memory/manifest.yaml"
             resp = await self._client.get(url)
             self._check_rate_limit(resp)

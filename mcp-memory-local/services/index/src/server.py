@@ -174,6 +174,209 @@ async def tool_resolve_context(request: Request):
     return {"pointers": results, "count": len(results)}
 
 
+@app.post("/tools/register_repo")
+async def tool_register_repo(request: Request):
+    """MCP tool: register_repo — register a GitHub repo for indexing."""
+    body = await request.json()
+    provider_name = body.get("provider", "github")
+    repo_input = (body.get("repo") or "").strip()
+    namespace = body.get("namespace", "default")
+
+    if not repo_input:
+        return JSONResponse({"error": "repo is required"}, status_code=400)
+
+    # Validate provider exists
+    try:
+        provider = registry.get(provider_name)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+    # For GitHub provider, validate owner/repo format
+    if provider_name == "github":
+        parts = repo_input.split("/")
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            return JSONResponse(
+                {"error": "GitHub repos must be in 'owner/repo' format"},
+                status_code=400,
+            )
+        external_id = repo_input
+        repo_name = parts[1]
+
+        # Validate the repo exists and has a manifest
+        try:
+            valid = await provider.validate_repo(external_id)
+        except RuntimeError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        if not valid:
+            return JSONResponse(
+                {"error": f"Repo '{external_id}' not found or missing .ai/memory/manifest.yaml"},
+                status_code=404,
+            )
+    else:
+        external_id = repo_input
+        repo_name = repo_input
+
+    # Check max registered repos limit
+    max_repos = int(os.environ.get("MAX_REGISTERED_REPOS", "50"))
+    async with pool.acquire() as conn:
+        count = await conn.fetchval(
+            "SELECT COUNT(*) FROM repo_registry WHERE enabled = true"
+        )
+        if count >= max_repos:
+            return JSONResponse(
+                {"error": f"Registration limit reached ({max_repos} repos). Set MAX_REGISTERED_REPOS to increase."},
+                status_code=429,
+            )
+
+        # Upsert into repo_registry
+        row = await conn.fetchrow(
+            """
+            INSERT INTO repo_registry (provider, namespace, repo_name, external_id, enabled, registered_by)
+            VALUES ($1, $2, $3, $4, true, $5)
+            ON CONFLICT (provider, namespace, repo_name) DO UPDATE SET
+                external_id = EXCLUDED.external_id,
+                enabled = true,
+                updated_at = now()
+            RETURNING id, provider, namespace, repo_name, external_id, enabled, created_at, updated_at
+            """,
+            provider_name, namespace, repo_name, external_id,
+            body.get("registered_by", "mcp"),
+        )
+
+    logger.info(f"Registered repo: {provider_name}/{repo_name} -> {external_id}")
+    return {
+        "status": "registered",
+        "repo_name": row["repo_name"],
+        "provider": row["provider"],
+        "external_id": row["external_id"],
+        "namespace": row["namespace"],
+        "message": f"Repo registered. Run index_repo to index it.",
+    }
+
+
+@app.post("/tools/unregister_repo")
+async def tool_unregister_repo(request: Request):
+    """MCP tool: unregister_repo — soft-disable or purge a registered repo."""
+    body = await request.json()
+    repo_name = (body.get("repo") or "").strip()
+    namespace = body.get("namespace", "default")
+    provider_name = body.get("provider", "github")
+    purge = body.get("purge", False)
+
+    if not repo_name:
+        return JSONResponse({"error": "repo is required"}, status_code=400)
+
+    # Check if this is an env-var repo (cannot unregister)
+    if provider_name == "github":
+        try:
+            provider = registry.get("github")
+            env_repos = {r.split("/")[-1] for r in provider._repo_list()}
+            if repo_name in env_repos:
+                return JSONResponse(
+                    {"error": f"Repo '{repo_name}' is configured via GITHUB_REPOS env var and cannot be unregistered via MCP. Remove it from the environment configuration instead."},
+                    status_code=403,
+                )
+        except ValueError:
+            pass
+
+    async with pool.acquire() as conn:
+        # Check repo exists in registry
+        row = await conn.fetchrow(
+            "SELECT id FROM repo_registry WHERE provider = $1 AND namespace = $2 AND repo_name = $3",
+            provider_name, namespace, repo_name,
+        )
+        if not row:
+            return JSONResponse(
+                {"error": f"Repo '{repo_name}' not found in registry"},
+                status_code=404,
+            )
+
+        # Soft-disable
+        await conn.execute(
+            "UPDATE repo_registry SET enabled = false, updated_at = now() WHERE id = $1",
+            row["id"],
+        )
+
+        result = {"status": "disabled", "repo": repo_name}
+
+        # Purge if requested
+        if purge:
+            deleted_chunks = await conn.fetchval(
+                "DELETE FROM memory_chunks WHERE repo = $1 AND namespace = $2 RETURNING COUNT(*)",
+                repo_name, namespace,
+            )
+            await conn.execute(
+                "DELETE FROM memory_packs WHERE repo = $1 AND namespace = $2",
+                repo_name, namespace,
+            )
+            await conn.execute(
+                "DELETE FROM repo_registry WHERE id = $1",
+                row["id"],
+            )
+            result["status"] = "purged"
+            result["chunks_deleted"] = deleted_chunks or 0
+
+    logger.info(f"Unregistered repo: {repo_name} (purge={purge})")
+    return result
+
+
+@app.post("/tools/list_repos")
+async def tool_list_repos(request: Request):
+    """MCP tool: list_repos — list all known repos and their index status."""
+    repos = {}
+
+    # 1. Env-var repos from active providers
+    for provider in registry.active_providers():
+        if provider.name == "github":
+            for owner_repo in provider._repo_list():
+                rname = owner_repo.split("/")[-1]
+                repos[f"{provider.name}:{rname}"] = {
+                    "repo_name": rname,
+                    "provider": provider.name,
+                    "external_id": owner_repo,
+                    "namespace": "default",
+                    "source": "env_var",
+                    "enabled": True,
+                    "indexed": False,
+                    "last_indexed": None,
+                }
+
+    # 2. DB-registered repos
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT provider, namespace, repo_name, external_id, enabled, created_at FROM repo_registry"
+        )
+        for row in rows:
+            key = f"{row['provider']}:{row['repo_name']}"
+            if key in repos:
+                # Already in env var — mark as both
+                repos[key]["source"] = "env_var+registered"
+            else:
+                repos[key] = {
+                    "repo_name": row["repo_name"],
+                    "provider": row["provider"],
+                    "external_id": row["external_id"],
+                    "namespace": row["namespace"],
+                    "source": "registered",
+                    "enabled": row["enabled"],
+                    "indexed": False,
+                    "last_indexed": None,
+                }
+
+        # 3. Check index status from memory_packs
+        packs = await conn.fetch(
+            "SELECT repo, namespace, updated_at FROM memory_packs"
+        )
+        pack_map = {r["repo"]: r for r in packs}
+        for entry in repos.values():
+            pack = pack_map.get(entry["repo_name"])
+            if pack:
+                entry["indexed"] = True
+                entry["last_indexed"] = pack["updated_at"].isoformat() if pack["updated_at"] else None
+
+    return {"repos": list(repos.values()), "count": len(repos)}
+
+
 @app.get("/internal/manifest/{repo}")
 async def get_manifest(repo: str):
     """Internal endpoint: return manifest metadata for a repo (pinned standards, etc.)."""

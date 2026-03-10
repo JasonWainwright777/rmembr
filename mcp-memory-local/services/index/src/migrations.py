@@ -95,6 +95,23 @@ MIGRATIONS = [
     """
     ALTER TABLE memory_packs ADD COLUMN IF NOT EXISTS references_standards JSONB NOT NULL DEFAULT '[]';
     """,
+    # Migration 5: Dynamic repo registration table
+    """
+    CREATE TABLE IF NOT EXISTS repo_registry (
+        id            BIGSERIAL PRIMARY KEY,
+        provider      TEXT NOT NULL,
+        namespace     TEXT NOT NULL DEFAULT 'default',
+        repo_name     TEXT NOT NULL,
+        external_id   TEXT NOT NULL,
+        enabled       BOOLEAN NOT NULL DEFAULT true,
+        registered_by TEXT,
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (provider, namespace, repo_name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_repo_registry_provider
+        ON repo_registry (provider, enabled);
+    """,
 ]
 
 
