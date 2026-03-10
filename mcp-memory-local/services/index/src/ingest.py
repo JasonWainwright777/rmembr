@@ -27,17 +27,21 @@ async def index_repo(pool, repo_desc: RepoDescriptor, ref: str = "local") -> dic
     manifest_meta = repo_desc.metadata or {}
 
     # Upsert memory_packs record
+    import json as _json
+    refs_standards = manifest_meta.get("references_standards", [])
+    refs_standards_json = _json.dumps(refs_standards)
     async with pool.acquire() as conn:
         await conn.execute(
             """
-            INSERT INTO memory_packs (namespace, repo, pack_version, owners, classification, embedding_model, last_indexed_ref)
-            VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)
+            INSERT INTO memory_packs (namespace, repo, pack_version, owners, classification, embedding_model, last_indexed_ref, references_standards)
+            VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8::jsonb)
             ON CONFLICT (namespace, repo) DO UPDATE SET
                 pack_version = EXCLUDED.pack_version,
                 owners = EXCLUDED.owners,
                 classification = EXCLUDED.classification,
                 embedding_model = EXCLUDED.embedding_model,
                 last_indexed_ref = EXCLUDED.last_indexed_ref,
+                references_standards = EXCLUDED.references_standards,
                 updated_at = now()
             """,
             repo_desc.namespace,
@@ -47,6 +51,7 @@ async def index_repo(pool, repo_desc: RepoDescriptor, ref: str = "local") -> dic
             manifest_meta.get("classification", "internal"),
             manifest_meta.get("embedding_model", "nomic-embed-text"),
             ref,
+            refs_standards_json,
         )
 
     # Enumerate documents and fetch content via provider

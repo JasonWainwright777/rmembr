@@ -1,9 +1,11 @@
 """Standards service — serves canonical enterprise standards (§5.2)."""
 
 import os
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import yaml
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -15,6 +17,35 @@ from auth import InternalAuthMiddleware
 
 
 logger = setup_logging("standards")
+
+# In-memory cache for parsed front matter metadata
+_metadata_cache: dict[str, dict] = {}
+
+
+def _parse_front_matter(file_path: Path) -> dict:
+    """Extract YAML front matter (title, domain) from a standard file.
+
+    Returns dict with 'title' and 'domain' keys.
+    Caches results in memory since standard files rarely change.
+    """
+    cache_key = str(file_path)
+    if cache_key in _metadata_cache:
+        return _metadata_cache[cache_key]
+
+    result = {"title": "", "domain": ""}
+    try:
+        text = file_path.read_text(encoding="utf-8", errors="replace")
+        # Match YAML front matter between --- delimiters
+        match = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
+        if match:
+            fm = yaml.safe_load(match.group(1)) or {}
+            result["title"] = fm.get("title", "")
+            result["domain"] = fm.get("domain", "")
+    except Exception:
+        pass
+
+    _metadata_cache[cache_key] = result
+    return result
 
 
 def _get_standards_root() -> Path:
@@ -180,7 +211,14 @@ async def tool_list_standards(request: Request):
         if domain and not std_id.startswith(domain):
             continue
 
-        standards.append({"id": std_id, "version": version})
+        # Extract front matter metadata for this standard
+        fm = _parse_front_matter(md_file)
+        standards.append({
+            "id": std_id,
+            "version": version,
+            "title": fm["title"] or std_id,
+            "domain": fm["domain"] or "",
+        })
 
     return {"standards": standards, "count": len(standards)}
 

@@ -12,8 +12,6 @@ embedding:
   dims: 768
   version: locked
 references:
-  standards:
-    - enterprise/ado/pipelines/job-templates-v3
-    - enterprise/terraform/module-versioning
+  standards: []
 override_policy:
   allow_repo_overrides: false

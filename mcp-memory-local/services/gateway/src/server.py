@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
@@ -183,6 +184,97 @@ async def _get_bundle_record(bundle_id: str) -> dict | None:
         if row:
             return json.loads(row["bundle_json"])
     return None
+
+
+# Stopwords for keyword matching (common words that add noise)
+_STOPWORDS = frozenset({
+    "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
+    "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
+    "have", "has", "had", "do", "does", "did", "will", "would", "could",
+    "should", "may", "might", "shall", "can", "need", "must", "this",
+    "that", "these", "those", "i", "we", "you", "he", "she", "it", "they",
+    "me", "us", "him", "her", "them", "my", "our", "your", "his", "its",
+    "their", "what", "which", "who", "whom", "how", "when", "where", "why",
+    "not", "no", "nor", "so", "if", "then", "than", "too", "very", "just",
+    "about", "up", "out", "all", "some", "any", "each", "every", "both",
+    "few", "more", "most", "other", "into", "over", "after", "before",
+    "between", "under", "again", "further", "once", "here", "there",
+    "also", "new", "write", "add", "create", "update", "implement",
+    "build", "make", "use", "using", "set", "get",
+})
+
+
+def _tokenize(text: str) -> set[str]:
+    """Tokenize text into lowercase words, removing stopwords and short tokens."""
+    words = set(re.findall(r"[a-z0-9]+", text.lower()))
+    return words - _STOPWORDS
+
+
+def _select_standards(
+    task: str,
+    available: list[dict],
+    pinned: list[str],
+    max_standards: int = 5,
+) -> list[dict]:
+    """Select relevant standards for a task.
+
+    1. Always include pinned standards
+    2. Score remaining by keyword overlap between task and title+domain+id
+    3. Return up to max_standards, pinned first then by score descending
+    """
+    task_tokens = _tokenize(task)
+    pinned_set = set(pinned)
+
+    pinned_results = []
+    scored_candidates = []
+
+    for std in available:
+        std_id = std["id"]
+        # Build searchable text from metadata
+        std_text = f"{std.get('title', '')} {std.get('domain', '')} {std_id}"
+        std_tokens = _tokenize(std_text)
+
+        overlap = task_tokens & std_tokens
+        score = len(overlap)
+
+        entry = {**std, "_selection_score": score, "_matched_keywords": sorted(overlap)}
+
+        if std_id in pinned_set:
+            entry["_selection_reason"] = "pinned"
+            pinned_results.append(entry)
+        else:
+            entry["_selection_reason"] = "keyword_match" if score > 0 else "none"
+            scored_candidates.append(entry)
+
+    # Sort candidates by score descending
+    scored_candidates.sort(key=lambda x: x["_selection_score"], reverse=True)
+
+    # Combine: pinned first, then scored matches, up to budget
+    result = list(pinned_results)
+    remaining_budget = max_standards - len(result)
+
+    for candidate in scored_candidates:
+        if remaining_budget <= 0:
+            break
+        if candidate["_selection_score"] > 0:
+            result.append(candidate)
+            remaining_budget -= 1
+
+    return result
+
+
+async def _get_pinned_standards(client: httpx.AsyncClient, repo: str) -> list[str]:
+    """Fetch pinned standards from the repo's manifest via the index service."""
+    try:
+        resp = await client.get(
+            f"{INDEX_URL}/internal/manifest/{repo}",
+            headers=_internal_headers(),
+        )
+        if resp.status_code == 200:
+            return resp.json().get("references_standards", [])
+    except Exception:
+        pass
+    return []
 
 
 def _classify_chunk(chunk: dict, standards_refs: list[str]) -> str:
@@ -426,18 +518,39 @@ async def handle_get_context_bundle(params: dict) -> dict:
 
             pointers = index_resp.json().get("pointers", [])
 
-            # Step 6: Fetch standards content
+            # Step 6: Select and fetch relevant standards
             standards_content = []
+            standards_refs = []
+            standards_selection = []
+            max_standards = policy.budgets.max_standards
+
+            # 6a: Get all available standards with metadata
             standards_list_resp = await client.post(
                 f"{STANDARDS_URL}/tools/list_standards",
                 headers=_internal_headers(),
                 json={"version": standards_version},
             )
 
-            standards_refs = []
             if standards_list_resp.status_code == 200:
-                standards_list = standards_list_resp.json().get("standards", [])
-                for std in standards_list[:5]:
+                available_standards = standards_list_resp.json().get("standards", [])
+
+                # 6b: Get pinned standards from repo manifest
+                pinned = await _get_pinned_standards(client, repo)
+
+                # 6c: Select relevant standards
+                selected = _select_standards(task, available_standards, pinned, max_standards)
+                standards_selection = [
+                    {
+                        "id": s["id"],
+                        "reason": s.get("_selection_reason", "unknown"),
+                        "score": s.get("_selection_score", 0),
+                        "matched_keywords": s.get("_matched_keywords", []),
+                    }
+                    for s in selected
+                ]
+
+                # 6d: Fetch content only for selected standards
+                for std in selected:
                     std_resp = await client.post(
                         f"{STANDARDS_URL}/tools/get_standard",
                         headers=_internal_headers(),
@@ -470,6 +583,7 @@ async def handle_get_context_bundle(params: dict) -> dict:
         "namespace": namespace,
         "standards_version": standards_version,
         "standards_content": standards_content,
+        "standards_selection": standards_selection,
         "chunks": budgeted,
         "total_candidates": len(pointers),
         "filtered_count": len(filtered),
@@ -527,6 +641,7 @@ async def handle_explain_context_bundle(params: dict) -> dict:
         "after_classification_filter": bundle["filtered_count"],
         "after_budget_trim": bundle["returned_count"],
         "standards_included": [s["id"] for s in bundle.get("standards_content", [])],
+        "standards_selection": bundle.get("standards_selection", []),
         "priority_breakdown": {},
         "chunks_summary": [],
     }

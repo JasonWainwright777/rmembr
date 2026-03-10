@@ -133,6 +133,7 @@ class GitHubProvider:
             embedding = raw.get("embedding", {})
             repo_name = owner_repo.split("/")[-1]
 
+            references = raw.get("references", {})
             manifest = ManifestData(
                 pack_version=raw.get("pack_version", 1),
                 scope_repo=scope.get("repo", ""),
@@ -141,6 +142,7 @@ class GitHubProvider:
                 classification=raw.get("classification", "internal"),
                 embedding_model=embedding.get("model", "nomic-embed-text"),
                 embedding_version=embedding.get("version", "locked"),
+                references_standards=references.get("standards", []),
             )
 
             yield RepoDescriptor(
@@ -154,6 +156,7 @@ class GitHubProvider:
                     "classification": manifest.classification,
                     "embedding_model": manifest.embedding_model,
                     "embedding_version": manifest.embedding_version,
+                    "references_standards": manifest.references_standards,
                 },
             )
 

@@ -91,6 +91,10 @@ MIGRATIONS = [
         CONSTRAINT idx_github_cache_key UNIQUE (cache_type, cache_key)
     );
     """,
+    # Migration 4: Store references_standards in memory_packs for manifest pinning
+    """
+    ALTER TABLE memory_packs ADD COLUMN IF NOT EXISTS references_standards JSONB NOT NULL DEFAULT '[]';
+    """,
 ]
 
 

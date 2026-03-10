@@ -44,6 +44,7 @@ class FilesystemProvider:
                     "classification": manifest.classification,
                     "embedding_model": manifest.embedding_model,
                     "embedding_version": manifest.embedding_version,
+                    "references_standards": manifest.references_standards,
                 },
             )
 

@@ -24,6 +24,7 @@ class BudgetPolicy:
     max_bundle_chars: int = 40000
     max_sources: int = 50
     default_k: int = 12
+    max_standards: int = 5
     tool_timeouts: dict[str, int] = field(default_factory=dict)
     cache_ttl_seconds: int = 300
 
@@ -60,6 +61,7 @@ class PolicyBundle:
             max_bundle_chars=budgets_data.get("max_bundle_chars", 40000),
             max_sources=budgets_data.get("max_sources", 50),
             default_k=budgets_data.get("default_k", 12),
+            max_standards=budgets_data.get("max_standards", 5),
             tool_timeouts=budgets_data.get("tool_timeouts", {}),
             cache_ttl_seconds=budgets_data.get("cache_ttl_seconds", 300),
         )
@@ -93,6 +95,8 @@ class PolicyBundle:
                         "list_standards",
                         "get_standard",
                         "get_schema",
+                        "index_repo",
+                        "index_all",
                     ],
                     "writer": [
                         "index_repo",
@@ -105,6 +109,7 @@ class PolicyBundle:
                 max_bundle_chars=40000,
                 max_sources=50,
                 default_k=12,
+                max_standards=5,
                 tool_timeouts={
                     "search_repo_memory": 10,
                     "get_context_bundle": 30,

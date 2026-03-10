@@ -174,6 +174,27 @@ async def tool_resolve_context(request: Request):
     return {"pointers": results, "count": len(results)}
 
 
+@app.get("/internal/manifest/{repo}")
+async def get_manifest(repo: str):
+    """Internal endpoint: return manifest metadata for a repo (pinned standards, etc.)."""
+    if not pool:
+        return JSONResponse({"error": "Database not available"}, status_code=503)
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT references_standards FROM memory_packs WHERE repo = $1 LIMIT 1",
+            repo,
+        )
+    if not row:
+        return {"repo": repo, "references_standards": []}
+
+    import json
+    refs = row["references_standards"]
+    # refs is already parsed from JSONB by asyncpg
+    if isinstance(refs, str):
+        refs = json.loads(refs)
+    return {"repo": repo, "references_standards": refs or []}
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("INDEX_PORT", "8081"))
