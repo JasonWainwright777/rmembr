@@ -1,55 +1,95 @@
-# rMEMbr Sample Showcase Prompts
+# rMEMbr Architect Showcase — Demo Script
 
-Prompts demonstrating what rMEMbr can do as a Federated Context Retrieval System.
+Prompts to demonstrate rMEMbr's value to the architecture team. Each section builds on the previous one, showing how AI assistants get governed context automatically.
 
-## Semantic Search
+---
 
-> "Search rMEMbr for how authentication works in the gateway"
+## 1. The Problem: "What standards apply to my task?"
 
-> "Search the repo memory for chunking strategy and anchor stability"
+Start here — show that rMEMbr knows what 9 enterprise standards exist and can surface them on demand.
 
-> "What does rMEMbr know about the provider framework?"
+> "List all enterprise standards available in rMEMbr"
 
-## Context Bundles (Core Feature)
+**What to highlight:** Standards are served live from the `enterprise-standards` GitHub repo. When the architecture team updates a standard on GitHub, every AI assistant picks it up automatically — no deployments, no copy-paste.
 
-> "Get me a context bundle for adding a new MCP tool to the gateway"
+---
 
-> "I'm about to refactor the ranking pipeline — pull a context bundle so I don't break anything"
+## 2. Task-Aware Standard Selection
 
-> "Assemble context for debugging why bundle cache TTL isn't being respected"
+This is the headline feature. Show how different tasks pull different standards — no more "dump everything into the prompt."
 
-## Bundle Explainability
+### Bicep task (should pull Bicep + CUBI patterns)
 
-> "Explain how that last bundle was assembled — why were those chunks selected?"
+> "Get a context bundle for writing a Bicep module for a new storage account in sample-repo-a"
 
-Uses `explain_context_bundle` on a previously returned bundle ID.
+**What to highlight:** Only the Bicep standard (with full CUBI content — naming functions, private endpoint patterns, module layout) is selected. ADO, Docker, Terraform, .NET standards are excluded. The AI gets 20KB of directly relevant governance instead of 5 random standards.
 
-## Enterprise Standards
+### .NET API task (should pull API + .NET standards)
 
-> "List all available enterprise standards"
+> "Get a context bundle for adding a new REST API endpoint to sample-repo-a"
 
-> "Show me the API versioning standard"
+**What to highlight:** Pulls REST API Design and .NET Application Standards. The AI will know our URL conventions, HTTP method rules, and .NET patterns — not our Bicep or Terraform rules.
 
-> "Pull the schema for the logging standard so I can validate my service"
+### Docker + observability task (should pull Docker + Logging standards)
 
-## Indexing & Validation
+> "Get a context bundle for containerizing a service with proper logging in sample-repo-a"
 
-> "Index the rmembr repo — I just updated the memory files"
+**What to highlight:** Pulls Docker Container Standards and Logging & Monitoring Standard. Observability scores higher because "logging" matches directly. The AI knows our base image policy, health check requirements, and structured logging format.
 
-> "Re-index all repos after pulling new changes"
+### Generic task (should pull zero standards)
 
-> "Validate that the rmembr memory pack is indexed and queryable"
+> "Get a context bundle for understanding the project structure of sample-repo-a"
 
-## Persona-Filtered Context
+**What to highlight:** Zero standards selected — no token budget wasted. The bundle still includes repo-specific context (architecture, branching, local dev setup).
 
-> "Get a context bundle for deploying to production, filtered for the agent persona"
+---
 
-> "Pull context as an external consumer — what would a third-party integration see?"
+## 3. Manifest Pinning — Repo-Level Governance
 
-## Real Workflow Scenarios
+Show how a repo can declare "always include these standards regardless of task."
 
-> "I'm adding GitHub Actions CI to this repo. Pull context so I understand the Docker setup, env vars, and any relevant standards."
+> "Get a context bundle for refactoring database queries in sample-repo-b"
 
-> "A new developer is onboarding — what does rMEMbr know about running the stack locally and the architecture?"
+**What to highlight:** sample-repo-b pins `enterprise/bicep/infrastructure-as-code` in its manifest. Even though the task says "database queries" (no keyword match), the Bicep standard is included because the repo owner mandated it. This is how platform teams enforce governance without relying on AI keyword matching.
 
-> "I need to add a new service to docker-compose. What patterns should I follow based on the existing services?"
+---
+
+## 4. Explainability — "Why did the AI get this context?"
+
+After any bundle call above, use the bundle ID to explain the selection.
+
+> "Explain how that last context bundle was assembled"
+
+**What to highlight:** Shows exactly which standards were included, why (pinned vs keyword match), what the match scores were, and which standards were available but not selected. Full audit trail — architects can verify the AI got the right governance.
+
+---
+
+## 5. Live Standards from GitHub
+
+Show that standards content is live, not stale.
+
+> "Show me the Bicep infrastructure-as-code standard"
+
+**What to highlight:** The response shows the full CUBI-specific Bicep standard (v2, ~20KB) with `coreParams`, `constructResourceName`, private endpoint patterns, multi-region architecture, pipeline hierarchy — all pulled live from `JasonWainwright777/enterprise-standards` on GitHub. Point out the path says `github:JasonWainwright777/enterprise-standards/...`.
+
+---
+
+## 6. Cross-Repo Context (if rmembr repo is indexed)
+
+Show that the same system works for rMEMbr's own repo.
+
+> "Get a context bundle for adding a new retrieval ranking boost to the rmembr repo"
+
+**What to highlight:** The AI gets rMEMbr's own architecture docs, ranking pipeline details, and relevant standards — same system, different repo. One MCP server serves context for every repo in the organization.
+
+---
+
+## Key Talking Points for Architects
+
+1. **Governance at the point of generation** — Standards are injected into AI context automatically, not via training or hope
+2. **Task-aware selection** — Only relevant standards consume the token budget (5 of 9 standards, not all 9)
+3. **Two-layer control** — Manifest pinning (repo owners enforce) + keyword matching (AI discovers)
+4. **Live from GitHub** — Update a standard, every AI assistant gets it immediately
+5. **Explainable** — Full audit trail of what context was provided and why
+6. **Federated** — Repo teams own their memory packs, architecture team owns the standards, rMEMbr orchestrates
+7. **No vendor lock-in** — Works with any MCP-compatible AI client (Claude Code, VS Code Copilot, etc.)

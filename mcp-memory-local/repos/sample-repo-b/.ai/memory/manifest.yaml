@@ -13,6 +13,6 @@ embedding:
   version: locked
 references:
   standards:
-    - enterprise/terraform/module-versioning
+    - enterprise/bicep/infrastructure-as-code
 override_policy:
   allow_repo_overrides: false
