@@ -8,7 +8,9 @@
       "Bash(pip install:*)",
       "mcp__rmembr__list_standards",
       "mcp__rmembr__get_schema",
-      "mcp__rmembr__validate_pack"
+      "mcp__rmembr__validate_pack",
+      "mcp__rmembr__get_context_bundle",
+      "mcp__rmembr__get_standard"
     ]
   }
 }
