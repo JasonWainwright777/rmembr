@@ -102,12 +102,22 @@ rMEMbr discovers repos via its **provider framework**. Use the method that fits 
 If your repo is on GitHub, configure these env vars in the rMEMbr stack's `.env`:
 
 ```env
-ACTIVE_PROVIDERS=filesystem,github
+ACTIVE_PROVIDERS=github
 GITHUB_TOKEN=ghp_your_pat_here
 GITHUB_REPOS=owner/your-repo          # comma-separated for multiple repos
 ```
 
 The GitHub provider reads `.ai/memory/` directly from your repo via the GitHub API. No symlinks, no copying, no volume mounts. It uses a two-layer cache (tree ETag + blob SHA) so steady-state indexing costs 0-2 API calls.
+
+#### Enterprise Standards Repo
+
+The standards service also reads from GitHub. To configure which repo serves enterprise standards:
+
+```env
+GITHUB_STANDARDS_REPO=owner/enterprise-standards
+```
+
+This must be a repo with standards files under `.ai/memory/enterprise/**/*.md`, each with YAML front matter (`title`, `domain`, `standard_id`). The standards service fetches and caches these via the GitHub API — no local files needed.
 
 Restart the stack after changing env vars:
 

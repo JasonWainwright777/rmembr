@@ -64,12 +64,19 @@ services:
       context: .
       dockerfile: services/standards/Dockerfile
     environment:
-      REPOS_ROOT: /repos
-      STANDARDS_REPO: ${STANDARDS_REPO:-enterprise-standards}
-      DEFAULT_STANDARDS_VERSION: ${DEFAULT_STANDARDS_VERSION:-local}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_API_URL: ${GITHUB_API_URL:-https://api.github.com}
+      GITHUB_STANDARDS_REPO: ${GITHUB_STANDARDS_REPO:-}
+      GITHUB_DEFAULT_BRANCH: ${GITHUB_DEFAULT_BRANCH:-main}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-memory}
+      POSTGRES_USER: ${POSTGRES_USER:-memory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localdev123}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-dev-secret-token-change-in-prod}
-    volumes:
-      - ./repos:/repos:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - internal
 
