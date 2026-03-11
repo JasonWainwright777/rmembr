@@ -253,7 +253,7 @@ graph TB
     end
 
     subgraph Standards["Standards Service :8082"]
-        GHC["GitHub Standards Client"]
+        SC["Standards Client"]
         META["Metadata Cache"]
     end
 
@@ -262,8 +262,11 @@ graph TB
         OL["Ollama<br/>(nomic-embed-text)"]
     end
 
-    subgraph External["External"]
+    subgraph External["External Providers"]
         GH["GitHub API"]
+        ADO["Azure DevOps API"]
+        CONF["Confluence API"]
+        CUSTOM["Custom Providers<br/>(Governance / Company Info)"]
     end
 
     CC --> MCP
@@ -273,7 +276,7 @@ graph TB
     ORCH --> POL
     ORCH --> BC
     ORCH -->|resolve_context| SEARCH
-    ORCH -->|list/get standards| GHC
+    ORCH -->|list/get standards| SC
     ORCH -->|internal/manifest| REG
 
     IDX --> OL
@@ -282,8 +285,14 @@ graph TB
     SEARCH --> OL
     REG --> PG
     PROV --> GH
-    GHC --> GH
-    GHC --> PG
+    PROV --> ADO
+    PROV --> CONF
+    PROV --> CUSTOM
+    SC --> GH
+    SC --> ADO
+    SC --> CONF
+    SC --> CUSTOM
+    SC --> PG
     PROV --> PG
 
     classDef client fill:#1a2332,stroke:#58a6ff,color:#e6edf3
@@ -296,11 +305,11 @@ graph TB
     class CC,VS,OT client
     class MCP,ORCH,POL,BC gateway
     class IDX,SEARCH,REG,PROV index
-    class GHC,META standards
+    class SC,META standards
     class PG,OL data
-    class GH external
+    class GH,ADO,CONF,CUSTOM external
 </div>
-<p class="flow-label">Fig 1. System topology &mdash; Gateway orchestrates Index + Standards, all backed by Postgres + Ollama</p>
+<p class="flow-label">Fig 1. System topology &mdash; Gateway orchestrates Index + Standards across multiple providers, all backed by Postgres + Ollama</p>
 
 <div class="grid">
   <div class="card">
@@ -309,11 +318,11 @@ graph TB
   </div>
   <div class="card">
     <h3>Index Service <span class="badge badge-green">:8081</span></h3>
-    <p>Ingests memory packs, computes embeddings, provides semantic search. Manages the provider framework (GitHub, Filesystem) and repo registry.</p>
+    <p>Ingests memory packs, computes embeddings, provides semantic search. Manages the provider framework (GitHub, ADO, Confluence, custom providers) and repo registry.</p>
   </div>
   <div class="card">
     <h3>Standards Service <span class="badge badge-orange">:8082</span></h3>
-    <p>Serves enterprise standards live from GitHub. Two-layer caching (ETag + blob SHA) minimizes API calls. Updates propagate automatically.</p>
+    <p>Serves enterprise standards from multiple providers (GitHub, ADO, Confluence, and custom sources). Two-layer caching (ETag + content hash) minimizes API calls. Updates propagate automatically.</p>
   </div>
   <div class="card">
     <h3>PostgreSQL + pgvector <span class="badge badge-cyan">Data</span></h3>
@@ -325,7 +334,19 @@ graph TB
   </div>
   <div class="card">
     <h3>GitHub API <span class="badge badge-red">External</span></h3>
-    <p>Source of truth for repo memory packs and enterprise standards. ETag-based caching keeps steady-state costs at 0&ndash;2 API calls per repo.</p>
+    <p>Source of truth for GitHub-hosted repos, memory packs, and enterprise standards. ETag-based caching keeps steady-state costs at 0&ndash;2 API calls per repo.</p>
+  </div>
+  <div class="card">
+    <h3>Azure DevOps API <span class="badge badge-red">External</span></h3>
+    <p>Source for ADO-hosted repos, wikis, and governance artifacts. Provides access to project-level standards, work items, and organizational policies.</p>
+  </div>
+  <div class="card">
+    <h3>Confluence API <span class="badge badge-red">External</span></h3>
+    <p>Source for company knowledge bases, architecture decision records, runbooks, and governance documentation stored in Confluence spaces.</p>
+  </div>
+  <div class="card">
+    <h3>Custom Providers <span class="badge badge-red">External</span></h3>
+    <p>Extensible provider interface for any source of governance or company information. New providers implement the standard provider contract to integrate additional systems.</p>
   </div>
 </div>
 
@@ -393,7 +414,7 @@ flowchart TB
     RESOLVE --> STANDARDS
 
     subgraph STANDARDS["Standard Selection Pipeline"]
-        LIST["List all 9 standards<br/>(from GitHub)"]
+        LIST["List all 9 standards<br/>(from providers)"]
         MANIFEST["Get pinned standards<br/>(from repo manifest)"]
         SELECT["Task-aware selection:<br/>1. Include all pinned<br/>2. Keyword-match remaining<br/>3. Cap at max_standards=5"]
         FETCH["Fetch selected<br/>standard content"]
@@ -430,7 +451,7 @@ flowchart TB
   <table>
     <tr><th>Field</th><th>Description</th></tr>
     <tr><td><code>bundle_id</code></td><td>UUID for explain/audit</td></tr>
-    <tr><td><code>standards_content[]</code></td><td>Full markdown of selected standards (live from GitHub)</td></tr>
+    <tr><td><code>standards_content[]</code></td><td>Full markdown of selected standards (live from configured providers)</td></tr>
     <tr><td><code>standards_selection[]</code></td><td>Why each standard was selected: <code>pinned</code> vs <code>keyword_match</code>, score, matched keywords</td></tr>
     <tr><td><code>chunks[]</code></td><td>Ranked repo context with similarity scores, provenance, priority class</td></tr>
     <tr><td><code>total_candidates</code></td><td>How many chunks were considered</td></tr>
@@ -514,10 +535,10 @@ flowchart LR
     <p><strong>Result:</strong> Bundle contains only repo context chunks</p>
   </div>
   <div class="card">
-    <h3>Example: Pinned Standard</h3>
-    <p><strong>Task:</strong> "Refactor database queries" (in sample-repo-b)</p>
-    <p><strong>Selected:</strong> Bicep IaC Standard (pinned in manifest, not from keywords)</p>
-    <p><strong>Reason:</strong> Repo owner mandated it &mdash; governance enforced regardless of task</p>
+    <h3>Example: .NET Task</h3>
+    <p><strong>Task:</strong> "Add a new service class with dependency injection"</p>
+    <p><strong>Selected:</strong> .NET Standard (keywords: <code>service</code>, <code>dependency</code>, <code>class</code>)</p>
+    <p><strong>Excluded:</strong> Bicep, Terraform, REST API, Docker, Observability, Security, ADO, Testing</p>
   </div>
 </div>
 
@@ -560,7 +581,7 @@ flowchart TB
       style YES fill:#1a2332,stroke:#3fb950,color:#e6edf3
       style ERR fill:#1a2332,stroke:#f85149,color:#e6edf3
   </div>
-  <p>The GitHub provider's <code>enumerate_repos()</code> now merges two sources:</p>
+  <p>Each provider's <code>enumerate_repos()</code> now merges two sources:</p>
   <ul>
     <li><strong>Static:</strong> <code>GITHUB_REPOS</code> env var (backward compatible, for bootstrapping)</li>
     <li><strong>Dynamic:</strong> <code>repo_registry</code> table (added via MCP at runtime)</li>
@@ -578,14 +599,14 @@ flowchart TB
         BK --> BC["bundle_cache table<br/>TTL = 300s"]
     end
 
-    subgraph L2["Layer 2: GitHub Tree Cache (Index + Standards)"]
-        TC["ETag tree cache<br/>If-None-Match header"]
-        TC -->|304 Not Modified| SKIP["0 API calls<br/>Use cached blob SHAs"]
-        TC -->|200 OK| UPDATE["Parse new tree<br/>Update cache"]
+    subgraph L2["Layer 2: Provider Tree Cache (Index + Standards)"]
+        TC["ETag / revision cache<br/>Conditional request headers"]
+        TC -->|Not Modified| SKIP["0 API calls<br/>Use cached content SHAs"]
+        TC -->|Modified| UPDATE["Parse new tree<br/>Update cache"]
     end
 
-    subgraph L3["Layer 3: GitHub Blob Cache (Index + Standards)"]
-        BL["Blob SHA cache<br/>Immutable content"]
+    subgraph L3["Layer 3: Content Blob Cache (Index + Standards)"]
+        BL["Content-hash cache<br/>Immutable content"]
         BL --> HIT["Cache hit:<br/>Return stored text"]
         BL --> MISS["Cache miss:<br/>Fetch + store"]
     end
@@ -597,7 +618,7 @@ flowchart TB
     style L2 fill:#1a2332,stroke:#d29922,color:#e6edf3
     style L3 fill:#1a2332,stroke:#3fb950,color:#e6edf3
 </div>
-<p class="flow-label">Fig 6. Three caching layers minimize latency and GitHub API usage</p>
+<p class="flow-label">Fig 6. Three caching layers minimize latency and provider API usage</p>
 
 <div class="grid">
   <div class="card">
@@ -608,17 +629,17 @@ flowchart TB
     <p><strong>Effect:</strong> Repeated identical tasks return instantly</p>
   </div>
   <div class="card">
-    <h3><span class="badge badge-orange">Layer 2</span> GitHub Tree Cache</h3>
-    <p><strong>What:</strong> Git tree structure (file paths + blob SHAs)</p>
-    <p><strong>Key:</strong> ETag from GitHub API</p>
-    <p><strong>TTL:</strong> Until tree changes (ETag mismatch)</p>
-    <p><strong>Effect:</strong> Steady-state indexing = 1 API call (304 response)</p>
+    <h3><span class="badge badge-orange">Layer 2</span> Provider Tree Cache</h3>
+    <p><strong>What:</strong> Content tree structure (file paths + content hashes)</p>
+    <p><strong>Key:</strong> ETag / revision identifier from provider API</p>
+    <p><strong>TTL:</strong> Until tree changes (revision mismatch)</p>
+    <p><strong>Effect:</strong> Steady-state indexing = 1 API call (conditional response)</p>
   </div>
   <div class="card">
-    <h3><span class="badge badge-green">Layer 3</span> Blob Content Cache</h3>
-    <p><strong>What:</strong> Raw file content keyed by Git blob SHA</p>
-    <p><strong>Key:</strong> Blob SHA (content-addressable, immutable)</p>
-    <p><strong>TTL:</strong> Forever (SHA changes when content changes)</p>
+    <h3><span class="badge badge-green">Layer 3</span> Content Blob Cache</h3>
+    <p><strong>What:</strong> Raw file content keyed by content hash</p>
+    <p><strong>Key:</strong> Content hash (content-addressable, immutable)</p>
+    <p><strong>TTL:</strong> Forever (hash changes when content changes)</p>
     <p><strong>Effect:</strong> Changed files re-fetch; unchanged files never re-fetch</p>
   </div>
 </div>
@@ -671,7 +692,7 @@ erDiagram
         timestamptz created_at
     }
 
-    github_cache {
+    provider_cache {
         bigserial id PK
         text cache_type
         text cache_key
@@ -706,7 +727,7 @@ erDiagram
   <tr>
     <td><code>register_repo</code></td>
     <td><span class="badge badge-green">Registry</span></td>
-    <td>Register a GitHub repo for indexing (validates manifest)</td>
+    <td>Register a repo for indexing (validates manifest via provider)</td>
     <td>Index proxy</td>
   </tr>
   <tr>
@@ -783,7 +804,7 @@ erDiagram
 <div class="card">
   <div class="security-item">
     <div class="security-icon green">&#10003;</div>
-    <div><strong>Repo validation before registration</strong> &mdash; GitHub API confirms the repo exists and has <code>.ai/memory/manifest.yaml</code> before it's stored. No phantom or typosquatted repos.</div>
+    <div><strong>Repo validation before registration</strong> &mdash; The provider API confirms the repo exists and has <code>.ai/memory/manifest.yaml</code> before it's stored. No phantom or typosquatted repos.</div>
   </div>
   <div class="security-item">
     <div class="security-icon green">&#10003;</div>
@@ -807,7 +828,7 @@ erDiagram
   </div>
   <div class="security-item">
     <div class="security-icon green">&#10003;</div>
-    <div><strong>No credentials in MCP API</strong> &mdash; The <code>register_repo</code> tool accepts <code>owner/repo</code> only. GitHub auth uses the pre-configured server-side token.</div>
+    <div><strong>No credentials in MCP API</strong> &mdash; The <code>register_repo</code> tool accepts <code>owner/repo</code> only. Provider auth uses pre-configured server-side tokens.</div>
   </div>
   <div class="security-item">
     <div class="security-icon green">&#10003;</div>
