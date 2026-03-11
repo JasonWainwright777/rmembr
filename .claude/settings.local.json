@@ -10,7 +10,8 @@
       "mcp__rmembr__get_schema",
       "mcp__rmembr__validate_pack",
       "mcp__rmembr__get_context_bundle",
-      "mcp__rmembr__get_standard"
+      "mcp__rmembr__get_standard",
+      "mcp__rmembr__explain_context_bundle"
     ]
   }
 }
