@@ -13,4 +13,4 @@ WORKDIR /app/gateway
 
 EXPOSE 8080
 
-CMD ["python", "-m", "src.server"]
+CMD ["uvicorn", "src.server:app", "--host", "0.0.0.0", "--port", "8080"]

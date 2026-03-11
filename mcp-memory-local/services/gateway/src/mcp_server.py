@@ -16,7 +16,7 @@ from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from starlette.applications import Starlette
-from starlette.routing import Route
+from starlette.routing import Route, Mount
 from starlette.requests import Request
 
 from structured_logging import setup_logging, new_request_id, request_id_var
@@ -64,11 +64,17 @@ def get_mcp_asgi_app():
         stateless=False,
     )
 
-    async def handle_streamable(request: Request):
-        """Handle Streamable HTTP requests (POST/GET/DELETE) for MCP."""
-        await _session_manager.handle_request(
-            request.scope, request.receive, request._send
-        )
+    class McpAsgiApp:
+        """Raw ASGI app wrapping the MCP session manager.
+
+        The session manager writes the HTTP response directly via ASGI
+        send(), so this must be mounted as a raw ASGI app — not as a
+        Starlette endpoint (which expects a Response return value).
+        """
+        async def __call__(self, scope, receive, send):
+            await _session_manager.handle_request(scope, receive, send)
+
+    mcp_asgi = McpAsgiApp()
 
     # --- Legacy SSE transport (preserved) ---
     sse = SseServerTransport("/mcp/messages/")
@@ -100,7 +106,7 @@ def get_mcp_asgi_app():
 
     mcp_app = Starlette(
         routes=[
-            Route("/mcp", endpoint=handle_streamable, methods=["GET", "POST", "DELETE"]),
+            Mount("/mcp", app=mcp_asgi),
             Route("/mcp/sse", endpoint=handle_sse),
             Route("/mcp/messages/", endpoint=handle_messages, methods=["POST"]),
         ],

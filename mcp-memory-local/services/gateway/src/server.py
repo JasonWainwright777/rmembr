@@ -765,4 +765,6 @@ if os.environ.get("MCP_ENABLED", "false").lower() == "true":
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("GATEWAY_PORT", "8080"))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # Use string reference so uvicorn imports the module as "src.server",
+    # avoiding dual-module issues where __main__ and src.server diverge.
+    uvicorn.run("src.server:app", host="0.0.0.0", port=port)
